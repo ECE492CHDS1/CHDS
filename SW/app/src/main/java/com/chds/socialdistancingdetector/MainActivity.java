@@ -21,9 +21,15 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
+import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.ListView;
 import android.widget.Toast;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
@@ -40,6 +46,10 @@ public class MainActivity extends AppCompatActivity {
     private List<ScanFilter> filters;
     private BluetoothGatt mGatt;
 
+    ListView deviceList;
+    ArrayAdapter<String> deviceAdapter;
+    ArrayList<String> dataList;
+    HashMap<String, String> dataHash;
 
     public static void checkPermissions(Activity activity, Context context){
         int PERMISSION_ALL = 1;
@@ -70,6 +80,23 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        deviceList = findViewById(R.id.device_list);
+        dataList = new ArrayList<>();
+        deviceAdapter = new ArrayAdapter<>(this, R.layout.content, dataList);
+
+        deviceList.setAdapter(deviceAdapter);
+
+        final Button scanButton = findViewById(R.id.button_scan);
+        scanButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                System.out.println("Scan Button Clicked!");
+                scanLeDevice(true);
+            }
+        });
+
+
+
         mHandler = new Handler();
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             Toast.makeText(this, "BLE Not Supported",
@@ -92,10 +119,10 @@ public class MainActivity extends AppCompatActivity {
                 mLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
                 settings = new ScanSettings.Builder()
                         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                        .setReportDelay(100)
                         .build();
                 filters = new ArrayList<ScanFilter>();
             }
-            scanLeDevice(true);
         }
     }
     @Override
@@ -130,15 +157,22 @@ public class MainActivity extends AppCompatActivity {
     private ScanCallback mScanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
-            Log.i("callbackType", String.valueOf(callbackType));
-            Log.i("result", result.toString());
-            BluetoothDevice btDevice = result.getDevice();
-            connectToDevice(btDevice);
+            HashMap<String, String> tempAttributes = new HashMap();
+            tempAttributes.put("device", result.getDevice().toString());
+            tempAttributes.put("RSSI", String.valueOf(result.getRssi()));
+            deviceAdapter.add(tempAttributes.toString());
+
+//            BluetoothDevice btDevice = result.getDevice();
+//            connectToDevice(btDevice);
         }
         @Override
         public void onBatchScanResults(List<ScanResult> results) {
-            for (ScanResult sr : results) {
-                Log.i("ScanResult - Results", sr.toString());
+            deviceAdapter.clear();
+            for (ScanResult result : results) {
+                HashMap<String, String> tempAttributes = new HashMap();
+                tempAttributes.put("device", result.getDevice().toString());
+                tempAttributes.put("RSSI", String.valueOf(result.getRssi()));
+                deviceAdapter.add(tempAttributes.toString());
             }
         }
         @Override
