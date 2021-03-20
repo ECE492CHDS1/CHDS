@@ -22,6 +22,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
@@ -34,6 +35,8 @@ import java.util.Map;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+
+// Activity for pairing user's own haptic device
 
 @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
 public class MainActivity extends AppCompatActivity {
@@ -50,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
     ArrayAdapter<String> deviceAdapter;
     ArrayList<String> dataList;
     HashMap<String, String> dataHash;
+    String theDevice;
 
     public static void checkPermissions(Activity activity, Context context){
         int PERMISSION_ALL = 1;
@@ -96,6 +100,18 @@ public class MainActivity extends AppCompatActivity {
         });
 
 
+        deviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                theDevice = deviceAdapter.getItem(i);
+                Intent show = new Intent(MainActivity.this, PairActivity.class);
+                show.putExtra("device",theDevice);
+                startActivity(show);
+
+            }
+        });
+
+
 
         mHandler = new Handler();
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
@@ -104,6 +120,9 @@ public class MainActivity extends AppCompatActivity {
             finish();
         }
         checkPermissions(MainActivity.this, this);
+
+        // todo: Check if app's paired device is cached. If so, move to "scan/dist calc activity"
+
         final BluetoothManager bluetoothManager =
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
@@ -119,7 +138,7 @@ public class MainActivity extends AppCompatActivity {
                 mLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
                 settings = new ScanSettings.Builder()
                         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                        .setReportDelay(100)
+                        .setReportDelay(10000)
                         .build();
                 filters = new ArrayList<ScanFilter>();
             }
@@ -159,9 +178,9 @@ public class MainActivity extends AppCompatActivity {
         public void onScanResult(int callbackType, ScanResult result) {
             HashMap<String, String> tempAttributes = new HashMap();
             tempAttributes.put("device", result.getDevice().toString());
+            tempAttributes.put("deviceName", String.valueOf(result.getScanRecord().getDeviceName()));
             tempAttributes.put("RSSI", String.valueOf(result.getRssi()));
             deviceAdapter.add(tempAttributes.toString());
-
 //            BluetoothDevice btDevice = result.getDevice();
 //            connectToDevice(btDevice);
         }
@@ -171,8 +190,10 @@ public class MainActivity extends AppCompatActivity {
             for (ScanResult result : results) {
                 HashMap<String, String> tempAttributes = new HashMap();
                 tempAttributes.put("device", result.getDevice().toString());
+                tempAttributes.put("deviceName", String.valueOf(result.getScanRecord().getDeviceName()));
                 tempAttributes.put("RSSI", String.valueOf(result.getRssi()));
                 deviceAdapter.add(tempAttributes.toString());
+                Log.i("onBatchScanResults", result.toString());
             }
         }
         @Override
