@@ -206,15 +206,13 @@ public class MainActivity extends AppCompatActivity {
 
                 deviceRSSIs.add(rssiValue);
                 rssiValues.put(deviceUUID, deviceRSSIs);
+                deviceAdapter.add( deviceUUID + ": " + rssiValues.get(deviceUUID).toString() );
             }
 
             HashSet<String> intersectSet = new HashSet<String>(rssiValues.keySet());
             intersectSet.retainAll( devices.keySet() );
 
             Log.i("Devices Intersection", intersectSet.toString() );
-
-
-            deviceAdapter.add( rssiValues.toString() );
         }
 
         @Override
