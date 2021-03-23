@@ -22,18 +22,22 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
+
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+
+// Activity for pairing user's own haptic device
 
 @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
 public class MainActivity extends AppCompatActivity {
@@ -49,7 +53,9 @@ public class MainActivity extends AppCompatActivity {
     ListView deviceList;
     ArrayAdapter<String> deviceAdapter;
     ArrayList<String> dataList;
-    HashMap<String, String> dataHash;
+    String theDevice;
+    HashMap<String, ArrayList<Integer>> rssiValues = new HashMap<String, ArrayList<Integer>>();
+    HashMap<String,  BluetoothDevice> devices = new HashMap<String, BluetoothDevice>();
 
     public static void checkPermissions(Activity activity, Context context){
         int PERMISSION_ALL = 1;
@@ -95,7 +101,16 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        deviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                theDevice = deviceAdapter.getItem(i);
+                Intent show = new Intent(MainActivity.this, PairActivity.class);
+                show.putExtra("device",theDevice);
+                startActivity(show);
 
+            }
+        });
 
         mHandler = new Handler();
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
@@ -104,10 +119,14 @@ public class MainActivity extends AppCompatActivity {
             finish();
         }
         checkPermissions(MainActivity.this, this);
+
+        // todo: Check if app's paired device is cached. If so, move to "scan/dist calc activity"
+
         final BluetoothManager bluetoothManager =
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
     }
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -119,7 +138,7 @@ public class MainActivity extends AppCompatActivity {
                 mLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
                 settings = new ScanSettings.Builder()
                         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                        .setReportDelay(100)
+                        .setReportDelay(10000)
                         .build();
                 filters = new ArrayList<ScanFilter>();
             }
@@ -159,22 +178,43 @@ public class MainActivity extends AppCompatActivity {
         public void onScanResult(int callbackType, ScanResult result) {
             HashMap<String, String> tempAttributes = new HashMap();
             tempAttributes.put("device", result.getDevice().toString());
+            tempAttributes.put("deviceName", String.valueOf(result.getScanRecord().getDeviceName()));
             tempAttributes.put("RSSI", String.valueOf(result.getRssi()));
+            tempAttributes.put("Advertise Data", result.getScanRecord().getDeviceName() );
             deviceAdapter.add(tempAttributes.toString());
-
 //            BluetoothDevice btDevice = result.getDevice();
 //            connectToDevice(btDevice);
         }
         @Override
         public void onBatchScanResults(List<ScanResult> results) {
             deviceAdapter.clear();
+
             for (ScanResult result : results) {
-                HashMap<String, String> tempAttributes = new HashMap();
-                tempAttributes.put("device", result.getDevice().toString());
-                tempAttributes.put("RSSI", String.valueOf(result.getRssi()));
-                deviceAdapter.add(tempAttributes.toString());
+                BluetoothDevice tempDevice = result.getDevice();
+                String deviceUUID = tempDevice.toString();
+                String deviceName = tempDevice.getName();
+
+                devices.put(deviceUUID, tempDevice);
+
+                int rssiValue = result.getRssi();
+                ArrayList<Integer> deviceRSSIs;
+                if (rssiValues.containsKey(deviceUUID)) {
+                    deviceRSSIs = rssiValues.get(deviceUUID);
+                } else {
+                    deviceRSSIs = new ArrayList<Integer>();
+                }
+
+                deviceRSSIs.add(rssiValue);
+                rssiValues.put(deviceUUID, deviceRSSIs);
+                deviceAdapter.add( deviceUUID + ": " + rssiValues.get(deviceUUID).toString() );
             }
+
+            HashSet<String> intersectSet = new HashSet<String>(rssiValues.keySet());
+            intersectSet.retainAll( devices.keySet() );
+
+            Log.i("Devices Intersection", intersectSet.toString() );
         }
+
         @Override
         public void onScanFailed(int errorCode) {
             Log.e("Scan Failed", "Error Code: " + errorCode);
