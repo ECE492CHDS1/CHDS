@@ -1,5 +1,8 @@
+import time
 import board
+import busio
 import neopixel
+import adafruit_drv2605
 import adafruit_ble
 import adafruit_led_animation.color as color
 from adafruit_ble.advertising.standard import ProvideServicesAdvertisement
@@ -9,17 +12,21 @@ from adafruit_bluefruit_connect.accelerometer_packet import AccelerometerPacket
 from adafruit_bluefruit_connect.packet import Packet
 from digitalio import DigitalInOut, Direction
 
-#  setup for onboard NeoPixel
+# setup for onboard NeoPixel
 pixel_pin = board.NEOPIXEL
 num_pixels = 1
 
 pixel = neopixel.NeoPixel(pixel_pin, num_pixels, brightness=0.1, auto_write=False)
 
-#  onboard blue LED
+# setup for haptic motor driver
+i2c = busio.I2C(board.SCL, board.SDA)
+drv = adafruit_drv2605.DRV2605(i2c)
+
+# onboard blue LED
 blue_led = DigitalInOut(board.BLUE_LED)
 blue_led.direction = Direction.OUTPUT
 
-#  setup for BLE
+# setup for BLE
 ble = adafruit_ble.BLERadio()
 if ble.connected:
     for c in ble.connections:
@@ -27,47 +34,68 @@ if ble.connected:
 
 advertisement = ProvideServicesAdvertisement()
 
+# add device info service and UART service for BLE to advertise
 device_info_service = DeviceInfoService(manufacturer="CHDS")
 uart_service = UARTService()
 advertisement.services.append(device_info_service)
 advertisement.services.append(uart_service)
 
+# function for haptic motor vibration
+# num: # of times to vibrate
+# duration: duration of vibration
+# delay: time between vibrations
+def vibrate(num, duration, delay):
+    # 16 is the vibration effect being used for the haptic motor
+    drv.sequence[0] = adafruit_drv2605.Effect(16)
+    for _ in range(0, num):
+        drv.play()  # start vibration
+        time.sleep(duration)
+        drv.stop()  # stop vibration
+        time.sleep(delay)
+
 while True:
+    # start BLE
     ble.start_advertising(advertisement)
     blue_led.value = False
+    pixel.fill(color.RED)
+    pixel.show()
     print("Waiting for connection")
 
-    #  NeoPixel is red when not connected to BLE
+    # NeoPixel is red when not connected to BLE
     while not ble.connected:
         blue_led.value = False
-        pixel.fill(color.RED)
-        pixel.show()
+
+    # blue LED is on when connected
+    blue_led.value = True
+    pixel.fill(color.BLUE)
+    pixel.show()
     print("Connected")
 
-    pixel.fill(color.BLACK)
-    pixel.show()
+    for connection in ble.connections:
+        if connection.connected:
+            if not connection.paired:
+                #  pairs to phone
+                connection.pair(bond=True)
+                print("paired")
 
     while ble.connected:
-        blue_led.value = True #  blue LED is on when connected
-
-        # for connection in ble.connections:
-        #     if not connection.paired:
-        #         #  pairs to phone
-        #         connection.pair()
-        #         print("paired")
-
         if uart_service.in_waiting:
             line = uart_service.readline()
-            print(line.decode('utf-8'))
-            pixel.fill(color.CYAN)
+            command = line.strip().decode('utf-8')
+            print(command)
+
+            if command == 'alert':
+                pixel.fill(color.CYAN)
+                pixel.show()
+                vibrate(2, 2, 1)
+
+            pixel.fill(color.BLUE)
             pixel.show()
+
             uart_service.write(line)
 
-        pixel.fill(color.BLACK)
-        pixel.show()
-
-    #  if BLE becomes disconnected then blue LED turns off
-    #  and BLE begins advertising again to reconnect
-    print("Disconnected")
+    # if BLE becomes disconnected then blue LED turns off
+    # and BLE begins advertising again to reconnect
     blue_led.value = False
+    print("Disconnected")
     print()
