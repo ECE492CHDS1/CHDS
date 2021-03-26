@@ -185,10 +185,15 @@ public class MainActivity extends AppCompatActivity {
 
             for (BluetoothGattService service : services) {
                 List<BluetoothGattCharacteristic> characteristicsTable = service.getCharacteristics();
+                String characteristics = "";
+
+                for (BluetoothGattCharacteristic cr : characteristicsTable) {
+                    characteristics += cr.toString() + ", ";
+                }
 
                 Log.i(
                         "printGattTable",
-                        "Service: " + service.getUuid().toString() + "\nCharacteristics: " + characteristicsTable.toString()
+                        "Service: " + service.getUuid().toString() + "\nCharacteristics: " + characteristics
                 );
             }
         }
