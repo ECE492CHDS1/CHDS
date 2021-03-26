@@ -210,8 +210,6 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     mLEScanner.stopScan(mScanCallback);
-                    Log.i("dataList", dataList.toString());
-                    Log.i("deviceAdapter", deviceAdapter.toString());
                     deviceAdapter.notifyDataSetChanged();
                 }
             }, SCAN_PERIOD);

@@ -52,8 +52,7 @@ public class PairActivity extends AppCompatActivity {
         pairButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                connectToDevice(device);
-                finish();
+                connectToDevice(device);
             }
         });
     }
@@ -93,10 +92,14 @@ public class PairActivity extends AppCompatActivity {
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            Log.i("onServicesDiscovered", "In onServicesDiscovered");
+
             List<BluetoothGattService> services = gatt.getServices();
             Log.i("onServicesDiscovered", services.toString());
             gatt.readCharacteristic(services.get(1).getCharacteristics().get
                     (0));
+
+            finish();
         }
 
         @Override
