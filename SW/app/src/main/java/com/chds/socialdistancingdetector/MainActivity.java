@@ -38,6 +38,8 @@ import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
+import com.google.gson.Gson;
+
 // Activity for pairing user's own haptic device
 
 @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -46,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private int REQUEST_ENABLE_BT = 1;
     private int REQUEST_PAIR_REQUEST = 2;
     private Handler mHandler;
-    private static final long SCAN_PERIOD = 10000;
+    private static final long SCAN_PERIOD = 3000;
     private BluetoothLeScanner mLEScanner;
     private ScanSettings settings;
     private List<ScanFilter> filters;
@@ -55,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
     ListView deviceList;
     ScanResultAdapter deviceAdapter;
     ArrayList<CustomScanResult> dataList;
-    HashMap<String, Integer> addrMap = new HashMap<String, Integer>();
+    HashMap<String, Integer> addrMap;
     BluetoothDevice selectedDevice;
 
     public static void checkPermissions(Activity activity, Context context){
@@ -90,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
 
         deviceList = findViewById(R.id.device_list);
         dataList = new ArrayList<>();
+        addrMap = new HashMap<String, Integer>();
         deviceAdapter = new ScanResultAdapter(this, R.layout.content, dataList);
 
         deviceList.setAdapter(deviceAdapter);
@@ -107,9 +110,8 @@ public class MainActivity extends AppCompatActivity {
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
                 CustomScanResult result = deviceAdapter.getItem(i);
                 Intent show = new Intent(MainActivity.this, PairActivity.class);
-                show.putExtra("device", result);
+                show.putExtra("device", new Gson().toJson(result));
                 startActivity(show);
-
             }
         });
 
@@ -135,7 +137,7 @@ public class MainActivity extends AppCompatActivity {
                 mLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
                 settings = new ScanSettings.Builder()
                         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                        .setReportDelay(100)
+//                        .setReportDelay(10000)
                         .build();
                 filters = new ArrayList<ScanFilter>();
             }
@@ -163,29 +165,37 @@ public class MainActivity extends AppCompatActivity {
     private ScanCallback mScanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
+            String tempAddr = result.getDevice().getAddress();
             CustomScanResult tempResult = new CustomScanResult(result);
-            deviceAdapter.add(tempResult);
+
+            if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
+                CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
+                existingResult.addRssiValue(result.getRssi());
+                dataList.set(addrMap.get(tempAddr), existingResult);
+            } else {
+                dataList.add(tempResult);
+                addrMap.put(tempAddr, dataList.size()-1);
+            }
         }
 
         @RequiresApi(api = Build.VERSION_CODES.N)
         @Override
         public void onBatchScanResults(List<ScanResult> results) {
-            deviceAdapter.clear();
-
             for (ScanResult result : results) {
                 String tempAddr = result.getDevice().getAddress();
                 CustomScanResult tempResult = new CustomScanResult(result);
 
-                if (!deviceAdapter.isEmpty() && addrMap.containsKey(tempAddr)) {
-                    System.out.println(deviceAdapter.toString());
-                    CustomScanResult existingResult = deviceAdapter.getItem(addrMap.get(tempAddr));
+                if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
+                    CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
                     existingResult.addRssiValue(result.getRssi());
+                    dataList.set(addrMap.get(tempAddr), existingResult);
                 } else {
-                    deviceAdapter.add(tempResult);
-                    addrMap.put(tempAddr, deviceAdapter.getCount()-1);
+                    dataList.add(tempResult);
+                    addrMap.put(tempAddr, dataList.size()-1);
                 }
             }
 
+            Log.i("batchScan Results", dataList.toString());
         }
 
         @Override
@@ -200,8 +210,14 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     mLEScanner.stopScan(mScanCallback);
+                    Log.i("dataList", dataList.toString());
+                    Log.i("deviceAdapter", deviceAdapter.toString());
+                    deviceAdapter.notifyDataSetChanged();
                 }
             }, SCAN_PERIOD);
+
+            dataList.clear();
+            addrMap.clear();
 
             mLEScanner.startScan(filters, settings, mScanCallback);
             Log.i("scanLeDevice", "Start LeScan with mScanCallback");

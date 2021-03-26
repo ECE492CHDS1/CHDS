@@ -16,6 +16,8 @@ import java.util.List;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.gson.Gson;
+
 public class PairActivity extends AppCompatActivity {
 
     // Declare the variables so that you will be able to reference it later.
@@ -34,7 +36,8 @@ public class PairActivity extends AppCompatActivity {
         backButton = findViewById(R.id.back_button);
         pairButton = findViewById(R.id.pair_button);
 
-        result = (CustomScanResult) getIntent().getSerializableExtra("device");
+        String scanResultJSON = (String) getIntent().getSerializableExtra("device");
+        result = new Gson().fromJson(scanResultJSON, CustomScanResult.class);
 
         deviceName.setText(result.getDeviceName());
         device = result.getDevice();
@@ -49,7 +52,7 @@ public class PairActivity extends AppCompatActivity {
         pairButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                connectToDevice(device);
+//                connectToDevice(device);
                 finish();
             }
         });

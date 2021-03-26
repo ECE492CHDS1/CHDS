@@ -5,6 +5,7 @@ import android.bluetooth.le.ScanResult;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class CustomScanResult implements Serializable
 {
@@ -68,5 +69,18 @@ public class CustomScanResult implements Serializable
                 ", device=" + device +
                 ", rssiValues=" + rssiValues +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        CustomScanResult that = (CustomScanResult) o;
+        return Objects.equals(deviceAddr, that.deviceAddr);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(deviceAddr);
     }
 }

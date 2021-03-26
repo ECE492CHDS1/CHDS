@@ -30,15 +30,14 @@ public class ScanResultAdapter extends ArrayAdapter<CustomScanResult> {
         }
 
         CustomScanResult result = scanResults.get(position);
+
         String deviceName = result.getDeviceName();
-        String deviceUUID = result.getDeviceAddr().toString();
+        String deviceAddr = result.getDeviceAddr();
+        String printName = "Name: " + deviceName;
+        String printAddr = "Address: " + deviceAddr;
 
         TextView textViewName = view.findViewById(R.id.content_view_device_name);
         TextView textViewUUID = view.findViewById((R.id.content_view_device_uuid));
-
-        String printName = "Name: " + textViewName;
-        String printAddr = "Address: " + textViewUUID;
-
         textViewName.setText(printName);
         textViewUUID.setText(printAddr);
 
