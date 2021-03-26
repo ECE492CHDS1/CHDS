@@ -32,10 +32,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.UUID;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+
+import com.google.gson.Gson;
 
 // Activity for pairing user's own haptic device
 
@@ -43,19 +46,19 @@ import androidx.core.app.ActivityCompat;
 public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter mBluetoothAdapter;
     private int REQUEST_ENABLE_BT = 1;
+    private int REQUEST_PAIR_REQUEST = 2;
     private Handler mHandler;
-    private static final long SCAN_PERIOD = 10000;
+    private static final long SCAN_PERIOD = 3000;
     private BluetoothLeScanner mLEScanner;
     private ScanSettings settings;
     private List<ScanFilter> filters;
-    private BluetoothGatt mGatt;
+
 
     ListView deviceList;
-    ArrayAdapter<String> deviceAdapter;
-    ArrayList<String> dataList;
-    String theDevice;
-    HashMap<String, ArrayList<Integer>> rssiValues = new HashMap<String, ArrayList<Integer>>();
-    HashMap<String,  BluetoothDevice> devices = new HashMap<String, BluetoothDevice>();
+    ScanResultAdapter deviceAdapter;
+    ArrayList<CustomScanResult> dataList;
+    HashMap<String, Integer> addrMap;
+    BluetoothDevice selectedDevice;
 
     public static void checkPermissions(Activity activity, Context context){
         int PERMISSION_ALL = 1;
@@ -66,7 +69,7 @@ public class MainActivity extends AppCompatActivity {
                 Manifest.permission.BLUETOOTH_PRIVILEGED,
         };
 
-        if(!hasPermissions(context, PERMISSIONS)){
+        if(!hasPermissions(context, PERMISSIONS)) {
             ActivityCompat.requestPermissions( activity, PERMISSIONS, PERMISSION_ALL);
         }
     }
@@ -89,7 +92,8 @@ public class MainActivity extends AppCompatActivity {
 
         deviceList = findViewById(R.id.device_list);
         dataList = new ArrayList<>();
-        deviceAdapter = new ArrayAdapter<>(this, R.layout.content, dataList);
+        addrMap = new HashMap<String, Integer>();
+        deviceAdapter = new ScanResultAdapter(this, R.layout.content, dataList);
 
         deviceList.setAdapter(deviceAdapter);
 
@@ -104,11 +108,10 @@ public class MainActivity extends AppCompatActivity {
         deviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                theDevice = deviceAdapter.getItem(i);
+                CustomScanResult result = deviceAdapter.getItem(i);
                 Intent show = new Intent(MainActivity.this, PairActivity.class);
-                show.putExtra("device",theDevice);
+                show.putExtra("device", new Gson().toJson(result));
                 startActivity(show);
-
             }
         });
 
@@ -125,11 +128,7 @@ public class MainActivity extends AppCompatActivity {
         final BluetoothManager bluetoothManager =
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
-    }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
         if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
@@ -138,35 +137,25 @@ public class MainActivity extends AppCompatActivity {
                 mLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
                 settings = new ScanSettings.Builder()
                         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                        .setReportDelay(10000)
+//                        .setReportDelay(10000)
                         .build();
                 filters = new ArrayList<ScanFilter>();
             }
         }
     }
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
-            scanLeDevice(false);
-        }
-    }
 
-    @Override
-    protected void onDestroy() {
-        if (mGatt == null) {
-            return;
-        }
-        mGatt.close();
-        mGatt = null;
-        super.onDestroy();
-    }
+
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_ENABLE_BT) {
             if (resultCode == Activity.RESULT_CANCELED) {
                 //Bluetooth not enabled.
                 finish();
+                return;
+            }
+        } else if (requestCode == REQUEST_PAIR_REQUEST) {
+            if (resultCode == Activity.RESULT_CANCELED) {
                 return;
             }
         }
@@ -176,43 +165,37 @@ public class MainActivity extends AppCompatActivity {
     private ScanCallback mScanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
-            HashMap<String, String> tempAttributes = new HashMap();
-            tempAttributes.put("device", result.getDevice().toString());
-            tempAttributes.put("deviceName", String.valueOf(result.getScanRecord().getDeviceName()));
-            tempAttributes.put("RSSI", String.valueOf(result.getRssi()));
-            tempAttributes.put("Advertise Data", result.getScanRecord().getDeviceName() );
-            deviceAdapter.add(tempAttributes.toString());
-//            BluetoothDevice btDevice = result.getDevice();
-//            connectToDevice(btDevice);
+            String tempAddr = result.getDevice().getAddress();
+            CustomScanResult tempResult = new CustomScanResult(result);
+
+            if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
+                CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
+                existingResult.addRssiValue(result.getRssi());
+                dataList.set(addrMap.get(tempAddr), existingResult);
+            } else {
+                dataList.add(tempResult);
+                addrMap.put(tempAddr, dataList.size()-1);
+            }
         }
+
+        @RequiresApi(api = Build.VERSION_CODES.N)
         @Override
         public void onBatchScanResults(List<ScanResult> results) {
-            deviceAdapter.clear();
-
             for (ScanResult result : results) {
-                BluetoothDevice tempDevice = result.getDevice();
-                String deviceUUID = tempDevice.toString();
-                String deviceName = tempDevice.getName();
+                String tempAddr = result.getDevice().getAddress();
+                CustomScanResult tempResult = new CustomScanResult(result);
 
-                devices.put(deviceUUID, tempDevice);
-
-                int rssiValue = result.getRssi();
-                ArrayList<Integer> deviceRSSIs;
-                if (rssiValues.containsKey(deviceUUID)) {
-                    deviceRSSIs = rssiValues.get(deviceUUID);
+                if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
+                    CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
+                    existingResult.addRssiValue(result.getRssi());
+                    dataList.set(addrMap.get(tempAddr), existingResult);
                 } else {
-                    deviceRSSIs = new ArrayList<Integer>();
+                    dataList.add(tempResult);
+                    addrMap.put(tempAddr, dataList.size()-1);
                 }
-
-                deviceRSSIs.add(rssiValue);
-                rssiValues.put(deviceUUID, deviceRSSIs);
-                deviceAdapter.add( deviceUUID + ": " + rssiValues.get(deviceUUID).toString() );
             }
 
-            HashSet<String> intersectSet = new HashSet<String>(rssiValues.keySet());
-            intersectSet.retainAll( devices.keySet() );
-
-            Log.i("Devices Intersection", intersectSet.toString() );
+            Log.i("batchScan Results", dataList.toString());
         }
 
         @Override
@@ -220,76 +203,29 @@ public class MainActivity extends AppCompatActivity {
             Log.e("Scan Failed", "Error Code: " + errorCode);
         }
     };
-    private BluetoothAdapter.LeScanCallback mLeScanCallback =
-            (device, rssi, scanRecord) -> runOnUiThread(() -> {
-                Log.i("onLeScan", device.toString());
-                connectToDevice(device);
-            });
 
     private void scanLeDevice(final boolean enable) {
         if (enable) {
             mHandler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    if (Build.VERSION.SDK_INT < 21) {
-                        mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                    } else {
-                        mLEScanner.stopScan(mScanCallback);
-                    }
+                    mLEScanner.stopScan(mScanCallback);
+                    Log.i("dataList", dataList.toString());
+                    Log.i("deviceAdapter", deviceAdapter.toString());
+                    deviceAdapter.notifyDataSetChanged();
                 }
             }, SCAN_PERIOD);
-            if (Build.VERSION.SDK_INT < 21) {
-                mBluetoothAdapter.startLeScan(mLeScanCallback);
-                Log.i("scanLeDevice", "Start LeScan with mLeScanCallback");
-            } else {
-                mLEScanner.startScan(filters, settings, mScanCallback);
-                Log.i("scanLeDevice", "Start LeScan with mScanCallback");
-            }
+
+            dataList.clear();
+            addrMap.clear();
+
+            mLEScanner.startScan(filters, settings, mScanCallback);
+            Log.i("scanLeDevice", "Start LeScan with mScanCallback");
+
         } else {
-            if (Build.VERSION.SDK_INT < 21) {
-                mBluetoothAdapter.stopLeScan(mLeScanCallback);
-            } else {
-                mLEScanner.stopScan(mScanCallback);
-            }
+            mLEScanner.stopScan(mScanCallback);
         }
     }
 
 
-    public void connectToDevice(BluetoothDevice device) {
-        if (mGatt == null) {
-            mGatt = device.connectGatt(this, false, gattCallback);
-            scanLeDevice(false);// will stop after first device detection
-        }
-    }
-    private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
-        @Override
-        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            Log.i("onConnectionStateChange", "Status: " + status);
-            switch (newState) {
-                case BluetoothProfile.STATE_CONNECTED:
-                    Log.i("gattCallback", "STATE_CONNECTED");
-                    gatt.discoverServices();
-                    break;
-                case BluetoothProfile.STATE_DISCONNECTED:
-                    Log.e("gattCallback", "STATE_DISCONNECTED");
-                    break;
-                default:
-                    Log.e("gattCallback", "STATE_OTHER");
-            }
-        }
-        @Override
-        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            List<BluetoothGattService> services = gatt.getServices();
-            Log.i("onServicesDiscovered", services.toString());
-            gatt.readCharacteristic(services.get(1).getCharacteristics().get
-                    (0));
-        }
-        @Override
-        public void onCharacteristicRead(BluetoothGatt gatt,
-                                         BluetoothGattCharacteristic
-                                                 characteristic, int status) {
-            Log.i("onCharacteristicRead", characteristic.toString());
-            gatt.disconnect();
-        }
-    };
 }
