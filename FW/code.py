@@ -3,8 +3,8 @@ import board
 import busio
 import neopixel
 import adafruit_drv2605
-import adafruit_ble
 import adafruit_led_animation.color as color
+from adafruit_ble import BLERadio
 from adafruit_ble.advertising.standard import ProvideServicesAdvertisement
 from adafruit_ble.services.standard.device_info import DeviceInfoService
 from adafruit_ble.services.nordic import UARTService
@@ -27,7 +27,8 @@ blue_led = DigitalInOut(board.BLUE_LED)
 blue_led.direction = Direction.OUTPUT
 
 # setup for BLE
-ble = adafruit_ble.BLERadio()
+ble = BLERadio()
+ble.name = "CHDS Haptic Device"
 if ble.connected:
     for c in ble.connections:
         c.disconnect()
