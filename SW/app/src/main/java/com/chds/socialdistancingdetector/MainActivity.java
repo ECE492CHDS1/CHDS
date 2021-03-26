@@ -164,6 +164,8 @@ public class MainActivity extends AppCompatActivity {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     Log.w("BluetoothGattCallback", "Successfully connected to $deviceAddress");
                     // TODO: Store a reference to BluetoothGatt
+                    gatt.discoverServices();
+
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     Log.w("BluetoothGattCallback", "Successfully disconnected from $deviceAddress");
                     gatt.close();
@@ -175,12 +177,30 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
+        private void printGattTable(List<BluetoothGattService> services) {
+            if (services.isEmpty()) {
+                Log.i("printGattTable", "No service and characteristic available, call discoverServices() first?");
+                return;
+            }
+
+            for (BluetoothGattService service : services) {
+                List<BluetoothGattCharacteristic> characteristicsTable = service.getCharacteristics();
+
+                Log.i(
+                        "printGattTable",
+                        "Service: " + service.getUuid().toString() + "\nCharacteristics: " + characteristicsTable.toString()
+                );
+            }
+        }
+
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             Log.i("onServicesDiscovered", "In onServicesDiscovered");
 
             List<BluetoothGattService> services = gatt.getServices();
-            Log.i("onServicesDiscovered", services.toString());
+
+            printGattTable(services);
+
             gatt.readCharacteristic(services.get(1).getCharacteristics().get
                     (0));
 
