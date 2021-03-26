@@ -53,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private ScanSettings settings;
     private List<ScanFilter> filters;
 
+    private BluetoothGatt mGatt;
 
     ListView deviceList;
     ScanResultAdapter deviceAdapter;
@@ -109,9 +110,11 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
                 CustomScanResult result = deviceAdapter.getItem(i);
-                Intent show = new Intent(MainActivity.this, PairActivity.class);
-                show.putExtra("device", new Gson().toJson(result));
-                startActivity(show);
+                connectToDevice(result.getDevice());
+
+//                Intent show = new Intent(MainActivity.this, PairActivity.class);
+//                show.putExtra("device", new Gson().toJson(result));
+//                startActivity(show);
             }
         });
 
@@ -137,7 +140,6 @@ public class MainActivity extends AppCompatActivity {
                 mLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
                 settings = new ScanSettings.Builder()
                         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-//                        .setReportDelay(10000)
                         .build();
                 filters = new ArrayList<ScanFilter>();
             }
@@ -145,6 +147,54 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    public void connectToDevice(BluetoothDevice device) {
+        if (mGatt == null) {
+            Log.i("connectToDevice", "Starting Gatt Connection");
+            mGatt = device.connectGatt(this, false, gattCallback);
+        }
+    }
+
+    private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            String deviceAddress = gatt.getDevice().getAddress();
+            Log.i("deviceAddress", deviceAddress);
+
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    Log.w("BluetoothGattCallback", "Successfully connected to $deviceAddress");
+                    // TODO: Store a reference to BluetoothGatt
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    Log.w("BluetoothGattCallback", "Successfully disconnected from $deviceAddress");
+                    gatt.close();
+                }
+            } else {
+                Log.w("BluetoothGattCallback", "Error $status encountered for $deviceAddress! Disconnecting...");
+                gatt.close();
+            }
+
+        }
+
+        @Override
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            Log.i("onServicesDiscovered", "In onServicesDiscovered");
+
+            List<BluetoothGattService> services = gatt.getServices();
+            Log.i("onServicesDiscovered", services.toString());
+            gatt.readCharacteristic(services.get(1).getCharacteristics().get
+                    (0));
+
+            finish();
+        }
+
+        @Override
+        public void onCharacteristicRead(BluetoothGatt gatt,
+                                         BluetoothGattCharacteristic
+                                                 characteristic, int status) {
+            Log.i("onCharacteristicRead", characteristic.toString());
+            gatt.disconnect();
+        }
+    };
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {

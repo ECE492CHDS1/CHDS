@@ -76,18 +76,21 @@ public class PairActivity extends AppCompatActivity {
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            Log.i("onConnectionStateChange", "Status: " + status);
-            switch (newState) {
-                case BluetoothProfile.STATE_CONNECTED:
-                    Log.i("gattCallback", "STATE_CONNECTED");
-                    gatt.discoverServices();
-                    break;
-                case BluetoothProfile.STATE_DISCONNECTED:
-                    Log.e("gattCallback", "STATE_DISCONNECTED");
-                    break;
-                default:
-                    Log.e("gattCallback", "STATE_OTHER");
+            String deviceAddress = gatt.getDevice().getAddress();
+
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    Log.w("BluetoothGattCallback", "Successfully connected to $deviceAddress");
+                    // TODO: Store a reference to BluetoothGatt
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    Log.w("BluetoothGattCallback", "Successfully disconnected from $deviceAddress");
+                    gatt.close();
+                }
+            } else {
+                Log.w("BluetoothGattCallback", "Error $status encountered for $deviceAddress! Disconnecting...");
+                gatt.close();
             }
+
         }
 
         @Override
