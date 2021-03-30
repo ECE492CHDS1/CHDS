@@ -77,7 +77,7 @@ while True:
             if not connection.paired:
                 #  pairs to phone
                 connection.pair(bond=True)
-                print("paired")
+                print("Paired")
 
     while ble.connected:
         if uart_service.in_waiting:
