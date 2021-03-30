@@ -62,7 +62,7 @@ public class MainActivity extends AppCompatActivity {
     BluetoothDevice selectedDevice;
 
     public static final UUID UART_SERVICE_UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
-    public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
+    public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
 
     public static void checkPermissions(Activity activity, Context context){
         int PERMISSION_ALL = 1;
@@ -162,6 +162,8 @@ public class MainActivity extends AppCompatActivity {
         if (mGatt == null) {
             Log.i("connectToDevice", "Starting Gatt Connection");
             mGatt = device.connectGatt(this, false, gattCallback);
+            // TODO: Check result of createBond()
+            device.createBond();
         }
     }
 
@@ -217,10 +219,9 @@ public class MainActivity extends AppCompatActivity {
 
             printGattTable(services);
 
-            gatt.readCharacteristic(services.get(1).getCharacteristics().get
-                    (0));
+            // gatt.readCharacteristic(services.get(1).getCharacteristics().get(0));
 
-            finish();
+            // finish();
         }
 
         @Override
@@ -228,7 +229,8 @@ public class MainActivity extends AppCompatActivity {
                                          BluetoothGattCharacteristic
                                                  characteristic, int status) {
             Log.i("onCharacteristicRead", characteristic.toString());
-            gatt.disconnect();
+
+            // gatt.disconnect();
         }
 
 
