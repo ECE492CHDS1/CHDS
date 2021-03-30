@@ -17,6 +17,11 @@
             android:layout_width="180dp"
             android:layout_height="wrap_content"
             android:text="Scan" />
+        <Button
+            android:id="@+id/send_alert"
+            android:layout_width="180dp"
+            android:layout_height="wrap_content"
+            android:text="Buzz" />
 
     </LinearLayout>
 

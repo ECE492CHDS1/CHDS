@@ -52,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothLeScanner mLEScanner;
     private ScanSettings settings;
     private List<ScanFilter> filters;
-
+    private static final String HAPTIC_DEVICE_ALERT = "alert";
     private BluetoothGatt mGatt;
 
     ListView deviceList;
@@ -60,6 +60,9 @@ public class MainActivity extends AppCompatActivity {
     ArrayList<CustomScanResult> dataList;
     HashMap<String, Integer> addrMap;
     BluetoothDevice selectedDevice;
+
+    public static final UUID UART_SERVICE_UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+    public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
 
     public static void checkPermissions(Activity activity, Context context){
         int PERMISSION_ALL = 1;
@@ -103,6 +106,14 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 System.out.println("Scan Button Clicked!");
                 scanLeDevice(true);
+            }
+        });
+
+        final Button buzzButton = findViewById(R.id.send_alert);
+        buzzButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                System.out.println("Alert Button Clicked!");
+                writeRxCharacteristic(HAPTIC_DEVICE_ALERT);
             }
         });
 
@@ -219,7 +230,28 @@ public class MainActivity extends AppCompatActivity {
             Log.i("onCharacteristicRead", characteristic.toString());
             gatt.disconnect();
         }
+
+
     };
+
+    public void writeRxCharacteristic(String message) {
+        byte[] value = message.getBytes();
+        BluetoothGattService RxService = mGatt.getService(UART_SERVICE_UUID);
+        if (RxService == null) {
+            Log.i("writeRxCharacteristic", "RxService not found");
+            return;
+        }
+        BluetoothGattCharacteristic RxChar = RxService.getCharacteristic(UART_RX_CHAR_UUID);
+        if (RxChar == null) {
+            Log.i("writeRxCharacteristic", "RxChar not found");
+            return;
+        }
+        RxChar.setValue(value);
+        boolean status = mGatt.writeCharacteristic(RxChar);
+
+        Log.d("writeRxCharacteristic", "write TXchar - status=" + status);
+
+    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -299,6 +331,5 @@ public class MainActivity extends AppCompatActivity {
             mLEScanner.stopScan(mScanCallback);
         }
     }
-
 
 }
