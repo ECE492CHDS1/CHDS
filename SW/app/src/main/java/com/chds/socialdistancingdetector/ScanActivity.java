@@ -23,14 +23,12 @@ import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,10 +41,9 @@ import com.google.gson.Gson;
 // Activity for pairing user's own haptic device
 
 @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
-public class MainActivity extends AppCompatActivity {
+public class ScanActivity extends AppCompatActivity {
     private BluetoothAdapter mBluetoothAdapter;
     private int REQUEST_ENABLE_BT = 1;
-    private int REQUEST_PAIR_REQUEST = 2;
     private Handler mHandler;
     private static final long SCAN_PERIOD = 3000;
     private BluetoothLeScanner mLEScanner;
@@ -55,14 +52,12 @@ public class MainActivity extends AppCompatActivity {
     private static final String HAPTIC_DEVICE_ALERT = "alert";
     private BluetoothGatt mGatt;
 
-    ListView deviceList;
-    ScanResultAdapter deviceAdapter;
     ArrayList<CustomScanResult> dataList;
     HashMap<String, Integer> addrMap;
-    BluetoothDevice selectedDevice;
 
     public static final UUID UART_SERVICE_UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
     public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+
 
     public static void checkPermissions(Activity activity, Context context){
         int PERMISSION_ALL = 1;
@@ -94,28 +89,20 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        deviceList = findViewById(R.id.device_list);
         dataList = new ArrayList<>();
         addrMap = new HashMap<String, Integer>();
-        deviceAdapter = new ScanResultAdapter(this, R.layout.content, dataList);
 
-        deviceList.setAdapter(deviceAdapter);
-
-        final Button scanButton = findViewById(R.id.button_scan);
-        scanButton.setOnClickListener(new View.OnClickListener() {
+        final Button buzzButton = findViewById(R.id.send_alert);
+        buzzButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                System.out.println("Scan Button Clicked!");
-                scanLeDevice(true);
+                System.out.println("Alert Button Clicked!");
+                writeRxCharacteristic(HAPTIC_DEVICE_ALERT);
             }
         });
 
-        deviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                CustomScanResult result = deviceAdapter.getItem(i);
-                connectToDevice(result.getDevice());
-            }
-        });
+        Gson gson = new Gson();
+        String strObj = getIntent().getStringExtra("mGatt");
+        mGatt = gson.fromJson(strObj, BluetoothGatt.class);
 
         mHandler = new Handler();
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
@@ -123,9 +110,7 @@ public class MainActivity extends AppCompatActivity {
                     Toast.LENGTH_SHORT).show();
             finish();
         }
-        checkPermissions(MainActivity.this, this);
-
-        // todo: Check if app's paired device is cached. If so, move to "scan/dist calc activity"
+        checkPermissions(ScanActivity.this, this);
 
         final BluetoothManager bluetoothManager =
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -140,21 +125,24 @@ public class MainActivity extends AppCompatActivity {
                 settings = new ScanSettings.Builder()
                         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                         .build();
-                filters = new ArrayList<ScanFilter>();
+                filters = new ArrayList<ScanFilter>(); // todo: filter for CHDS Haptic Device name
             }
         }
+        findNearbyDevices();
     }
 
-
-    public void connectToDevice(BluetoothDevice device) {
-        if (mGatt == null) {
-            Log.i("connectToDevice", "Starting Gatt Connection");
-            mGatt = device.connectGatt(this, false, gattCallback);
-            // TODO: Check result of createBond()
-            device.createBond();
+    private void findNearbyDevices() {
+        while (true) {
+            scanLeDevice(true);
+            System.out.println("Calculate final RSSI value");
+            calculateDistances();
         }
-
     }
+
+    private void calculateDistances() {
+        return;
+    }
+
 
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
@@ -179,40 +167,12 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
-        private void printGattTable(List<BluetoothGattService> services) {
-            if (services.isEmpty()) {
-                Log.i("printGattTable", "No service and characteristic available, call discoverServices() first?");
-                return;
-            }
-
-            for (BluetoothGattService service : services) {
-                List<BluetoothGattCharacteristic> characteristicsTable = service.getCharacteristics();
-                String characteristics = "";
-
-                for (BluetoothGattCharacteristic cr : characteristicsTable) {
-                    characteristics += cr.toString() + ", ";
-                }
-
-                Log.i(
-                        "printGattTable",
-                        "Service: " + service.getUuid().toString() + "\nCharacteristics: " + characteristics
-                );
-            }
-        }
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             Log.i("onServicesDiscovered", "In onServicesDiscovered");
 
             List<BluetoothGattService> services = gatt.getServices();
-
-            printGattTable(services);
-
-            // Start scanning activity
-            Intent scanIntent = new Intent();
-            Gson gson = new Gson();
-            scanIntent.putExtra("mGatt", gson.toJson(mGatt));
-            startActivity(scanIntent);
 
             // gatt.readCharacteristic(services.get(1).getCharacteristics().get(0));
 
@@ -310,7 +270,6 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     mLEScanner.stopScan(mScanCallback);
-                    deviceAdapter.notifyDataSetChanged();
                 }
             }, SCAN_PERIOD);
 
