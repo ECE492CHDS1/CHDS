@@ -57,10 +57,6 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothGatt mGatt;
     TextView statusBanner;
 
-    ListView deviceList;
-    ScanResultAdapter deviceAdapter;
-    ArrayList<CustomScanResult> dataList;
-    HashMap<String, Integer> addrMap;
     BluetoothDevice selectedDevice;
 
     public static final UUID UART_SERVICE_UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
@@ -96,30 +92,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-//        deviceList = findViewById(R.id.device_list);
-//        dataList = new ArrayList<>();
-//        addrMap = new HashMap<String, Integer>();
-//        deviceAdapter = new ScanResultAdapter(this, R.layout.content, dataList);
-//        deviceList.setAdapter(deviceAdapter);
-
         statusBanner = findViewById(R.id.main_status_banner);
         statusBanner.setText("Connect to a Device");
-
-//        final Button scanButton = findViewById(R.id.button_scan);
-//        scanButton.setOnClickListener(new View.OnClickListener() {
-//            public void onClick(View v) {
-//                System.out.println("Scan Button Clicked!");
-//                scanLeDevice(true);
-//            }
-//        });
-
-//        deviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-//            @Override
-//            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-//                CustomScanResult result = deviceAdapter.getItem(i);
-//                connectToDevice(result.getDevice());
-//            }
-//        });
 
         mHandler = new Handler();
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
@@ -156,10 +130,6 @@ public class MainActivity extends AppCompatActivity {
 
     public Handler getmHandler() {
         return mHandler;
-    }
-
-    public BluetoothAdapter getmBluetoothAdapter() {
-        return mBluetoothAdapter;
     }
 
     public BluetoothLeScanner getmLEScanner() {
@@ -240,10 +210,7 @@ public class MainActivity extends AppCompatActivity {
             ScanningFragment scanningFragment = new ScanningFragment();
             FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
             ft.replace(R.id.fragment_layout_manager, scanningFragment);
-
-            // gatt.readCharacteristic(services.get(1).getCharacteristics().get(0));
-
-            // finish();
+            ft.commitAllowingStateLoss();
         }
 
         @Override
@@ -251,8 +218,6 @@ public class MainActivity extends AppCompatActivity {
                                          BluetoothGattCharacteristic
                                                  characteristic, int status) {
             Log.i("onCharacteristicRead", characteristic.toString());
-
-            // gatt.disconnect();
         }
 
 
@@ -288,68 +253,5 @@ public class MainActivity extends AppCompatActivity {
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
-
-//    private ScanCallback mScanCallback = new ScanCallback() {
-//        @Override
-//        public void onScanResult(int callbackType, ScanResult result) {
-//            String tempAddr = result.getDevice().getAddress();
-//            CustomScanResult tempResult = new CustomScanResult(result);
-//
-//            if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
-//                CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
-//                existingResult.addRssiValue(result.getRssi());
-//                dataList.set(addrMap.get(tempAddr), existingResult);
-//            } else {
-//                dataList.add(tempResult);
-//                addrMap.put(tempAddr, dataList.size()-1);
-//            }
-//        }
-//
-//        @RequiresApi(api = Build.VERSION_CODES.N)
-//        @Override
-//        public void onBatchScanResults(List<ScanResult> results) {
-//            for (ScanResult result : results) {
-//                String tempAddr = result.getDevice().getAddress();
-//                CustomScanResult tempResult = new CustomScanResult(result);
-//
-//                if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
-//                    CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
-//                    existingResult.addRssiValue(result.getRssi());
-//                    dataList.set(addrMap.get(tempAddr), existingResult);
-//                } else {
-//                    dataList.add(tempResult);
-//                    addrMap.put(tempAddr, dataList.size()-1);
-//                }
-//            }
-//
-//            Log.i("batchScan Results", dataList.toString());
-//        }
-//
-//        @Override
-//        public void onScanFailed(int errorCode) {
-//            Log.e("Scan Failed", "Error Code: " + errorCode);
-//        }
-//    };
-//
-//    private void scanLeDevice(final boolean enable) {
-//        if (enable) {
-//            mHandler.postDelayed(new Runnable() {
-//                @Override
-//                public void run() {
-//                    mLEScanner.stopScan(mScanCallback);
-//                    deviceAdapter.notifyDataSetChanged();
-//                }
-//            }, SCAN_PERIOD);
-//
-//            dataList.clear();
-//            addrMap.clear();
-//
-//            mLEScanner.startScan(filters, settings, mScanCallback);
-//            Log.i("scanLeDevice", "Start LeScan with mScanCallback");
-//
-//        } else {
-//            mLEScanner.stopScan(mScanCallback);
-//        }
-//    }
 
 }
