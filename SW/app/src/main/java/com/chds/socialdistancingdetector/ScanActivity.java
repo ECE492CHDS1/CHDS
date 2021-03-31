@@ -22,9 +22,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.Button;
-import android.widget.ListView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -50,6 +48,7 @@ public class ScanActivity extends AppCompatActivity {
     private ScanSettings settings;
     private List<ScanFilter> filters;
     private static final String HAPTIC_DEVICE_ALERT = "alert";
+    private BluetoothDevice device;
     private BluetoothGatt mGatt;
 
     ArrayList<CustomScanResult> dataList;
@@ -101,8 +100,13 @@ public class ScanActivity extends AppCompatActivity {
         });
 
         Gson gson = new Gson();
-        String strObj = getIntent().getStringExtra("mGatt");
-        mGatt = gson.fromJson(strObj, BluetoothGatt.class);
+        String strObj = getIntent().getStringExtra("bluetoothDevice");
+        device = gson.fromJson(strObj, BluetoothDevice.class);
+
+        Log.i("connectToDevice", "Starting Gatt Connection");
+        mGatt = device.connectGatt(this, false, gattCallback);
+        // TODO: Check result of createBond()
+        device.createBond();
 
         mHandler = new Handler();
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
