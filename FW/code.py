@@ -83,7 +83,7 @@ while True:
         if uart_service.in_waiting:
             line = uart_service.readline()
             command = line.strip().decode('utf-8')
-            print(command)
+            print("Command: " + command)
 
             if command == 'alert':
                 pixel.fill(color.CYAN)
