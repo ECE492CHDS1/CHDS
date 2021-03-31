@@ -17,6 +17,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListView;
 
@@ -36,10 +37,6 @@ public class ConnectingFragment extends Fragment {
     HashMap<String, Integer> addrMap;
     private static final long SCAN_PERIOD = 3000;
     MainActivity mainActivity;
-
-    BluetoothLeScanner mLEScanner;
-    List<ScanFilter> filters;
-    ScanSettings settings;
 
     public ConnectingFragment() {
         // Required empty public constructor
@@ -65,7 +62,16 @@ public class ConnectingFragment extends Fragment {
         final Button scanButton = view.findViewById(R.id.button_scan);
         scanButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
+                Log.i("ScanButton", "Scan Button Clicked!");
                 scanLeDevice(true);
+            }
+        });
+
+        deviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                CustomScanResult result = deviceAdapter.getItem(i);
+                mainActivity.connectToDevice(result.getDevice());
             }
         });
 
@@ -73,44 +79,9 @@ public class ConnectingFragment extends Fragment {
         return view;
     }
 
-    private void scanLeDevice(final boolean enable) {
-        Handler mHandler = new Handler();
-
-//        BluetoothLeScanner mLEScanner = mainActivity.getmLEScanner();
-//        List<ScanFilter> filters = mainActivity.getFilters();
-//        ScanSettings settings = mainActivity.getSettings();
-
-        mLEScanner = mainActivity.getmBluetoothAdapter().getBluetoothLeScanner();
-        settings = new ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                .build();
-        filters = new ArrayList<ScanFilter>();
-
-        if (enable) {
-            mHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    mLEScanner.stopScan(mScanCallback);
-                    deviceAdapter.notifyDataSetChanged();
-                }
-            }, SCAN_PERIOD);
-
-//            dataList.clear();
-//            addrMap.clear();
-
-            mLEScanner.startScan(filters, settings, mScanCallback);
-            Log.i("scanLeDevice", "Start LeScan with mScanCallback");
-
-        } else {
-            mLEScanner.stopScan(mScanCallback);
-        }
-    }
-
     private ScanCallback mScanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
-            Log.i("mScanCallback", "In scan callback");
-
             String tempAddr = result.getDevice().getAddress();
             CustomScanResult tempResult = new CustomScanResult(result);
 
@@ -150,4 +121,29 @@ public class ConnectingFragment extends Fragment {
         }
     };
 
+    private void scanLeDevice(final boolean enable) {
+        Handler mHandler = mainActivity.getmHandler();
+        BluetoothLeScanner mLEScanner = mainActivity.getmLEScanner();
+        List<ScanFilter> filters = mainActivity.getFilters();
+        ScanSettings settings = mainActivity.getSettings();
+
+        if (enable) {
+            mHandler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mLEScanner.stopScan(mScanCallback);
+                    deviceAdapter.notifyDataSetChanged();
+                }
+            }, SCAN_PERIOD);
+
+            dataList.clear();
+            addrMap.clear();
+
+            mLEScanner.startScan(filters, settings, mScanCallback);
+            Log.i("scanLeDevice", "Start LeScan with mScanCallback");
+
+        } else {
+            mLEScanner.stopScan(mScanCallback);
+        }
+    }
 }
