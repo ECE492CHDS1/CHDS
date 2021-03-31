@@ -1,6 +1,7 @@
 package com.chds.socialdistancingdetector;
 import android.Manifest;
 import android.app.Activity;
+import android.app.Fragment;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -23,20 +24,20 @@ import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.google.gson.Gson;
 
@@ -54,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
     private List<ScanFilter> filters;
     private static final String HAPTIC_DEVICE_ALERT = "alert";
     private BluetoothGatt mGatt;
+    TextView statusBanner;
 
     ListView deviceList;
     ScanResultAdapter deviceAdapter;
@@ -94,28 +96,30 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        deviceList = findViewById(R.id.device_list);
-        dataList = new ArrayList<>();
-        addrMap = new HashMap<String, Integer>();
-        deviceAdapter = new ScanResultAdapter(this, R.layout.content, dataList);
+//        deviceList = findViewById(R.id.device_list);
+//        dataList = new ArrayList<>();
+//        addrMap = new HashMap<String, Integer>();
+//        deviceAdapter = new ScanResultAdapter(this, R.layout.content, dataList);
+//        deviceList.setAdapter(deviceAdapter);
 
-        deviceList.setAdapter(deviceAdapter);
+        statusBanner = findViewById(R.id.main_status_banner);
+        statusBanner.setText("Connect to a Device");
 
-        final Button scanButton = findViewById(R.id.button_scan);
-        scanButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                System.out.println("Scan Button Clicked!");
-                scanLeDevice(true);
-            }
-        });
+//        final Button scanButton = findViewById(R.id.button_scan);
+//        scanButton.setOnClickListener(new View.OnClickListener() {
+//            public void onClick(View v) {
+//                System.out.println("Scan Button Clicked!");
+//                scanLeDevice(true);
+//            }
+//        });
 
-        deviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                CustomScanResult result = deviceAdapter.getItem(i);
-                connectToDevice(result.getDevice());
-            }
-        });
+//        deviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+//            @Override
+//            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+//                CustomScanResult result = deviceAdapter.getItem(i);
+//                connectToDevice(result.getDevice());
+//            }
+//        });
 
         mHandler = new Handler();
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
@@ -143,21 +147,39 @@ public class MainActivity extends AppCompatActivity {
                 filters = new ArrayList<ScanFilter>();
             }
         }
+
+        ConnectingFragment connectingFragment = new ConnectingFragment();
+        FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+        ft.replace(R.id.fragment_layout_manager, connectingFragment);
+        ft.commitAllowingStateLoss();
     }
 
+    public Handler getmHandler() {
+        return mHandler;
+    }
+
+    public BluetoothAdapter getmBluetoothAdapter() {
+        return mBluetoothAdapter;
+    }
+
+    public BluetoothLeScanner getmLEScanner() {
+        return mLEScanner;
+    }
+
+    public List<ScanFilter> getFilters() {
+        return filters;
+    }
+
+    public ScanSettings getSettings() {
+        return settings;
+    }
 
     public void connectToDevice(BluetoothDevice device) {
         if (mGatt == null) {
-            // Start scanning activity
-            Intent scanIntent = new Intent(MainActivity.this, ScanActivity.class);
-            Gson gson = new Gson();
-            scanIntent.putExtra("bluetoothDevice", gson.toJson(device));
-            startActivity(scanIntent);
-
-//            Log.i("connectToDevice", "Starting Gatt Connection");
-//            mGatt = device.connectGatt(this, false, gattCallback);
-//            // TODO: Check result of createBond()
-//            device.createBond();
+            Log.i("connectToDevice", "Starting Gatt Connection");
+            mGatt = device.connectGatt(this, false, gattCallback);
+            // TODO: Check result of createBond()
+            device.createBond();
         }
 
     }
@@ -214,6 +236,11 @@ public class MainActivity extends AppCompatActivity {
 
             printGattTable(services);
 
+            statusBanner.setText("Detecting Nearby Devices");
+            ScanningFragment scanningFragment = new ScanningFragment();
+            FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+            ft.replace(R.id.fragment_layout_manager, scanningFragment);
+
             // gatt.readCharacteristic(services.get(1).getCharacteristics().get(0));
 
             // finish();
@@ -262,67 +289,67 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
     }
 
-    private ScanCallback mScanCallback = new ScanCallback() {
-        @Override
-        public void onScanResult(int callbackType, ScanResult result) {
-            String tempAddr = result.getDevice().getAddress();
-            CustomScanResult tempResult = new CustomScanResult(result);
-
-            if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
-                CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
-                existingResult.addRssiValue(result.getRssi());
-                dataList.set(addrMap.get(tempAddr), existingResult);
-            } else {
-                dataList.add(tempResult);
-                addrMap.put(tempAddr, dataList.size()-1);
-            }
-        }
-
-        @RequiresApi(api = Build.VERSION_CODES.N)
-        @Override
-        public void onBatchScanResults(List<ScanResult> results) {
-            for (ScanResult result : results) {
-                String tempAddr = result.getDevice().getAddress();
-                CustomScanResult tempResult = new CustomScanResult(result);
-
-                if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
-                    CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
-                    existingResult.addRssiValue(result.getRssi());
-                    dataList.set(addrMap.get(tempAddr), existingResult);
-                } else {
-                    dataList.add(tempResult);
-                    addrMap.put(tempAddr, dataList.size()-1);
-                }
-            }
-
-            Log.i("batchScan Results", dataList.toString());
-        }
-
-        @Override
-        public void onScanFailed(int errorCode) {
-            Log.e("Scan Failed", "Error Code: " + errorCode);
-        }
-    };
-
-    private void scanLeDevice(final boolean enable) {
-        if (enable) {
-            mHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    mLEScanner.stopScan(mScanCallback);
-                    deviceAdapter.notifyDataSetChanged();
-                }
-            }, SCAN_PERIOD);
-
-            dataList.clear();
-            addrMap.clear();
-
-            mLEScanner.startScan(filters, settings, mScanCallback);
-            Log.i("scanLeDevice", "Start LeScan with mScanCallback");
-
-        } else {
-            mLEScanner.stopScan(mScanCallback);
-        }
-    }
+//    private ScanCallback mScanCallback = new ScanCallback() {
+//        @Override
+//        public void onScanResult(int callbackType, ScanResult result) {
+//            String tempAddr = result.getDevice().getAddress();
+//            CustomScanResult tempResult = new CustomScanResult(result);
+//
+//            if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
+//                CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
+//                existingResult.addRssiValue(result.getRssi());
+//                dataList.set(addrMap.get(tempAddr), existingResult);
+//            } else {
+//                dataList.add(tempResult);
+//                addrMap.put(tempAddr, dataList.size()-1);
+//            }
+//        }
+//
+//        @RequiresApi(api = Build.VERSION_CODES.N)
+//        @Override
+//        public void onBatchScanResults(List<ScanResult> results) {
+//            for (ScanResult result : results) {
+//                String tempAddr = result.getDevice().getAddress();
+//                CustomScanResult tempResult = new CustomScanResult(result);
+//
+//                if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
+//                    CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
+//                    existingResult.addRssiValue(result.getRssi());
+//                    dataList.set(addrMap.get(tempAddr), existingResult);
+//                } else {
+//                    dataList.add(tempResult);
+//                    addrMap.put(tempAddr, dataList.size()-1);
+//                }
+//            }
+//
+//            Log.i("batchScan Results", dataList.toString());
+//        }
+//
+//        @Override
+//        public void onScanFailed(int errorCode) {
+//            Log.e("Scan Failed", "Error Code: " + errorCode);
+//        }
+//    };
+//
+//    private void scanLeDevice(final boolean enable) {
+//        if (enable) {
+//            mHandler.postDelayed(new Runnable() {
+//                @Override
+//                public void run() {
+//                    mLEScanner.stopScan(mScanCallback);
+//                    deviceAdapter.notifyDataSetChanged();
+//                }
+//            }, SCAN_PERIOD);
+//
+//            dataList.clear();
+//            addrMap.clear();
+//
+//            mLEScanner.startScan(filters, settings, mScanCallback);
+//            Log.i("scanLeDevice", "Start LeScan with mScanCallback");
+//
+//        } else {
+//            mLEScanner.stopScan(mScanCallback);
+//        }
+//    }
 
 }
