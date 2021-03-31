@@ -207,7 +207,7 @@ public class MainActivity extends AppCompatActivity {
             printGattTable(services);
 
             statusBanner.setText("Detecting Nearby Devices");
-            ScanningFragment scanningFragment = new ScanningFragment();
+            ScanningFragment scanningFragment = new ScanningFragment(mGatt);
             FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
             ft.replace(R.id.fragment_layout_manager, scanningFragment);
             ft.commitAllowingStateLoss();

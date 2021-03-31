@@ -1,5 +1,7 @@
 package com.chds.socialdistancingdetector;
 
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
@@ -10,14 +12,16 @@ import android.view.ViewGroup;
 
 /**
  * A simple {@link Fragment} subclass.
- * Use the {@link ScanningFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
 public class ScanningFragment extends Fragment {
     MainActivity mainActivity;
+    BluetoothGatt mGatt;
+    BluetoothDevice device;
 
-    public ScanningFragment() {
+    public ScanningFragment(BluetoothGatt mGatt) {
         // Required empty public constructor
+        this.mGatt = mGatt;
     }
 
     @Override
