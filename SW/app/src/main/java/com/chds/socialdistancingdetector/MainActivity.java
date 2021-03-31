@@ -148,10 +148,16 @@ public class MainActivity extends AppCompatActivity {
 
     public void connectToDevice(BluetoothDevice device) {
         if (mGatt == null) {
-            Log.i("connectToDevice", "Starting Gatt Connection");
-            mGatt = device.connectGatt(this, false, gattCallback);
-            // TODO: Check result of createBond()
-            device.createBond();
+            // Start scanning activity
+            Intent scanIntent = new Intent(MainActivity.this, ScanActivity.class);
+            Gson gson = new Gson();
+            scanIntent.putExtra("bluetoothDevice", gson.toJson(device));
+            startActivity(scanIntent);
+
+//            Log.i("connectToDevice", "Starting Gatt Connection");
+//            mGatt = device.connectGatt(this, false, gattCallback);
+//            // TODO: Check result of createBond()
+//            device.createBond();
         }
 
     }
@@ -207,12 +213,6 @@ public class MainActivity extends AppCompatActivity {
             List<BluetoothGattService> services = gatt.getServices();
 
             printGattTable(services);
-
-            // Start scanning activity
-            Intent scanIntent = new Intent(MainActivity.this, ScanActivity.class);
-            Gson gson = new Gson();
-            scanIntent.putExtra("mGatt", gson.toJson(mGatt));
-            startActivity(scanIntent);
 
             // gatt.readCharacteristic(services.get(1).getCharacteristics().get(0));
 
