@@ -209,7 +209,7 @@ public class MainActivity extends AppCompatActivity {
             printGattTable(services);
 
             // Start scanning activity
-            Intent scanIntent = new Intent();
+            Intent scanIntent = new Intent(MainActivity.this, ScanActivity.class);
             Gson gson = new Gson();
             scanIntent.putExtra("mGatt", gson.toJson(mGatt));
             startActivity(scanIntent);
