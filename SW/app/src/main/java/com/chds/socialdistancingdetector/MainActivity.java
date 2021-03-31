@@ -52,13 +52,17 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothLeScanner mLEScanner;
     private ScanSettings settings;
     private List<ScanFilter> filters;
-
+    private static final String HAPTIC_DEVICE_ALERT = "alert";
+    private BluetoothGatt mGatt;
 
     ListView deviceList;
     ScanResultAdapter deviceAdapter;
     ArrayList<CustomScanResult> dataList;
     HashMap<String, Integer> addrMap;
     BluetoothDevice selectedDevice;
+
+    public static final UUID UART_SERVICE_UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+    public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
 
     public static void checkPermissions(Activity activity, Context context){
         int PERMISSION_ALL = 1;
@@ -105,13 +109,23 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        final Button buzzButton = findViewById(R.id.send_alert);
+        buzzButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                System.out.println("Alert Button Clicked!");
+                writeRxCharacteristic(HAPTIC_DEVICE_ALERT);
+            }
+        });
+
         deviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
                 CustomScanResult result = deviceAdapter.getItem(i);
-                Intent show = new Intent(MainActivity.this, PairActivity.class);
-                show.putExtra("device", new Gson().toJson(result));
-                startActivity(show);
+                connectToDevice(result.getDevice());
+
+//                Intent show = new Intent(MainActivity.this, PairActivity.class);
+//                show.putExtra("device", new Gson().toJson(result));
+//                startActivity(show);
             }
         });
 
@@ -137,7 +151,6 @@ public class MainActivity extends AppCompatActivity {
                 mLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
                 settings = new ScanSettings.Builder()
                         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-//                        .setReportDelay(10000)
                         .build();
                 filters = new ArrayList<ScanFilter>();
             }
@@ -145,6 +158,102 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    public void connectToDevice(BluetoothDevice device) {
+        if (mGatt == null) {
+            Log.i("connectToDevice", "Starting Gatt Connection");
+            mGatt = device.connectGatt(this, false, gattCallback);
+            // TODO: Check result of createBond()
+            device.createBond();
+        }
+    }
+
+    private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            String deviceAddress = gatt.getDevice().getAddress();
+            Log.i("deviceAddress", deviceAddress);
+
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    Log.w("BluetoothGattCallback", "Successfully connected to $deviceAddress");
+                    // TODO: Store a reference to BluetoothGatt
+                    gatt.discoverServices();
+
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    Log.w("BluetoothGattCallback", "Successfully disconnected from $deviceAddress");
+                    gatt.close();
+                }
+            } else {
+                Log.w("BluetoothGattCallback", "Error $status encountered for $deviceAddress! Disconnecting...");
+                gatt.close();
+            }
+
+        }
+
+        private void printGattTable(List<BluetoothGattService> services) {
+            if (services.isEmpty()) {
+                Log.i("printGattTable", "No service and characteristic available, call discoverServices() first?");
+                return;
+            }
+
+            for (BluetoothGattService service : services) {
+                List<BluetoothGattCharacteristic> characteristicsTable = service.getCharacteristics();
+                String characteristics = "";
+
+                for (BluetoothGattCharacteristic cr : characteristicsTable) {
+                    characteristics += cr.toString() + ", ";
+                }
+
+                Log.i(
+                        "printGattTable",
+                        "Service: " + service.getUuid().toString() + "\nCharacteristics: " + characteristics
+                );
+            }
+        }
+
+        @Override
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            Log.i("onServicesDiscovered", "In onServicesDiscovered");
+
+            List<BluetoothGattService> services = gatt.getServices();
+
+            printGattTable(services);
+
+            // gatt.readCharacteristic(services.get(1).getCharacteristics().get(0));
+
+            // finish();
+        }
+
+        @Override
+        public void onCharacteristicRead(BluetoothGatt gatt,
+                                         BluetoothGattCharacteristic
+                                                 characteristic, int status) {
+            Log.i("onCharacteristicRead", characteristic.toString());
+
+            // gatt.disconnect();
+        }
+
+
+    };
+
+    public void writeRxCharacteristic(String message) {
+        byte[] value = message.getBytes();
+        BluetoothGattService RxService = mGatt.getService(UART_SERVICE_UUID);
+        if (RxService == null) {
+            Log.i("writeRxCharacteristic", "RxService not found");
+            return;
+        }
+        BluetoothGattCharacteristic RxChar = RxService.getCharacteristic(UART_RX_CHAR_UUID);
+        if (RxChar == null) {
+            Log.i("writeRxCharacteristic", "RxChar not found");
+            return;
+        }
+        RxChar.setValue(value);
+        boolean status = mGatt.writeCharacteristic(RxChar);
+
+        Log.d("writeRxCharacteristic", "write TXchar - status=" + status);
+
+    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -210,8 +319,6 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     mLEScanner.stopScan(mScanCallback);
-                    Log.i("dataList", dataList.toString());
-                    Log.i("deviceAdapter", deviceAdapter.toString());
                     deviceAdapter.notifyDataSetChanged();
                 }
             }, SCAN_PERIOD);
@@ -226,6 +333,5 @@ public class MainActivity extends AppCompatActivity {
             mLEScanner.stopScan(mScanCallback);
         }
     }
-
 
 }
