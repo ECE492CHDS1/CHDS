@@ -22,6 +22,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -33,16 +34,19 @@ import java.util.UUID;
 public class ScanningFragment extends Fragment {
     MainActivity mainActivity;
     BluetoothGatt mGatt;
-    BluetoothDevice device;
+    String connectedDeviceAddress;
     private static final long SCAN_PERIOD = 3000;
     public static final UUID UART_SERVICE_UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
     public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+    private static final String HAPTIC_DEVICE_ALERT = "alert";
 
     ArrayList<CustomScanResult> dataList;
     HashMap<String, Integer> addrMap;
 
-    public ScanningFragment(BluetoothGatt mGatt) {
+    public ScanningFragment(String deviceAddress, BluetoothGatt mGatt) {
         // Required empty public constructor
+        connectedDeviceAddress = deviceAddress;
+
         this.mGatt = mGatt;
         addrMap = new HashMap<>();
         this.dataList = new ArrayList<>();
@@ -61,7 +65,7 @@ public class ScanningFragment extends Fragment {
             public void run() {
                 // Do something here on the main thread
                 scanLeDevice(true);
-
+                measureDistance();
                 Log.i("Algorithm", "Time to implement it");
 
                 // Repeat this the same runnable code block again another 2 seconds
@@ -75,9 +79,38 @@ public class ScanningFragment extends Fragment {
         return view;
     }
 
+    private int calculateFinalRssi(ArrayList<Integer> rssiValues) {
+        int total = 0;
+        for (Integer rssiValue : rssiValues) {
+            total += rssiValue;
+        }
+
+        return (total / rssiValues.size());
+    }
+
+    private void measureDistance() {
+        for (CustomScanResult result : dataList) {
+            ArrayList<Integer> rssiValues = result.getRssiValues();
+
+            int finalRssiValue = calculateFinalRssi(rssiValues);
+
+            double distance = Math.pow(10, (double) ((result.getMtxPower() - finalRssiValue) / (10 * 2)));
+
+            Log.i("distance measure", "Distance measured: " + distance);
+
+            if (distance <= 2) {
+                writeRxCharacteristic(HAPTIC_DEVICE_ALERT);
+            }
+        }
+    }
+
     private ScanCallback mScanCallback = new ScanCallback() {
         private void addScanResultToArray(ScanResult result) {
             String tempAddr = result.getDevice().getAddress();
+            if (tempAddr.equals(connectedDeviceAddress)) {
+                return;
+            }
+
             CustomScanResult tempResult = new CustomScanResult(result);
 
             if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
