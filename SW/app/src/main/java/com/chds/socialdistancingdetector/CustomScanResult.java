@@ -13,6 +13,7 @@ public class CustomScanResult implements Serializable
     private String deviceAddr;
     private BluetoothDevice device;
     private ArrayList<Integer> rssiValues;
+    private int mtxPower;
 
     public CustomScanResult(ScanResult result)
     {
@@ -21,6 +22,7 @@ public class CustomScanResult implements Serializable
         device = result.getDevice();
         rssiValues = new ArrayList<Integer>();
         rssiValues.add(result.getRssi());
+        mtxPower = result.getScanRecord().getTxPowerLevel();
     }
 
     public CustomScanResult()
@@ -43,6 +45,10 @@ public class CustomScanResult implements Serializable
 
     public String getDeviceAddr() {
         return deviceAddr;
+    }
+
+    public int getMtxPower() {
+        return mtxPower;
     }
 
     public void setDevice(BluetoothDevice device) {

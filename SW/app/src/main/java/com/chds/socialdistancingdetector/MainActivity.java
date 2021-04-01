@@ -53,7 +53,6 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothLeScanner mLEScanner;
     private ScanSettings settings;
     private List<ScanFilter> filters;
-    private static final String HAPTIC_DEVICE_ALERT = "alert";
     private BluetoothGatt mGatt;
     TextView statusBanner;
 
@@ -151,6 +150,7 @@ public class MainActivity extends AppCompatActivity {
             mGatt = device.connectGatt(this, false, gattCallback);
             // TODO: Check result of createBond()
             device.createBond();
+            selectedDevice = device;
         }
 
     }
@@ -208,7 +208,7 @@ public class MainActivity extends AppCompatActivity {
             printGattTable(services);
 
             statusBanner.setText("Detecting Nearby Devices");
-            ScanningFragment scanningFragment = new ScanningFragment(mGatt);
+            ScanningFragment scanningFragment = new ScanningFragment(selectedDevice.getAddress(), mGatt);
             FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
             ft.replace(R.id.fragment_layout_manager, scanningFragment);
             ft.commitAllowingStateLoss();
