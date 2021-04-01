@@ -34,7 +34,7 @@ public class ScanningFragment extends Fragment {
     MainActivity mainActivity;
     BluetoothGatt mGatt;
     BluetoothDevice device;
-    private static final long SCAN_PERIOD = 5000;
+    private static final long SCAN_PERIOD = 3000;
     public static final UUID UART_SERVICE_UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
     public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
 
@@ -45,12 +45,13 @@ public class ScanningFragment extends Fragment {
         // Required empty public constructor
         this.mGatt = mGatt;
         addrMap = new HashMap<>();
+        this.dataList = new ArrayList<>();
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_connecting, container, false);
+        View view = inflater.inflate(R.layout.fragment_scanning, container, false);
         mainActivity = ((MainActivity) getActivity());
 
         Handler handler = new Handler();
@@ -65,7 +66,7 @@ public class ScanningFragment extends Fragment {
 
                 // Repeat this the same runnable code block again another 2 seconds
                 // 'this' is referencing the Runnable object
-                handler.postDelayed(this, 2000);
+                handler.postDelayed(this, 5000);
             }
         };
 
