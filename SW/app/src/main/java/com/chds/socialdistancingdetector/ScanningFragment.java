@@ -76,8 +76,7 @@ public class ScanningFragment extends Fragment {
     }
 
     private ScanCallback mScanCallback = new ScanCallback() {
-        @Override
-        public void onScanResult(int callbackType, ScanResult result) {
+        private void addScanResultToArray(ScanResult result) {
             String tempAddr = result.getDevice().getAddress();
             CustomScanResult tempResult = new CustomScanResult(result);
 
@@ -91,10 +90,18 @@ public class ScanningFragment extends Fragment {
             }
         }
 
+        @Override
+        public void onScanResult(int callbackType, ScanResult result) {
+            addScanResultToArray(result);
+        }
+
         @RequiresApi(api = Build.VERSION_CODES.N)
         @Override
         public void onBatchScanResults(List<ScanResult> results) {
             Log.i("batchScan Results", dataList.toString());
+            for (ScanResult result : results) {
+                addScanResultToArray(result);
+            }
         }
 
         @Override
