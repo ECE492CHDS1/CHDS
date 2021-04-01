@@ -116,6 +116,10 @@ public class MainActivity extends AppCompatActivity {
                         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                         .build();
                 filters = new ArrayList<ScanFilter>();
+                ScanFilter filter = new ScanFilter.Builder()
+                        .setDeviceName("CHDS Haptic Device")
+                        .build();
+                filters.add(filter);
             }
         }
 
