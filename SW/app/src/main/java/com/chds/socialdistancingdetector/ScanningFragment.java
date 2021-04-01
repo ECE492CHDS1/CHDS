@@ -66,6 +66,10 @@ public class ScanningFragment extends Fragment {
                 // Do something here on the main thread
                 scanLeDevice(true);
                 measureDistance();
+
+                dataList.clear();
+                addrMap.clear();
+
                 Log.i("Algorithm", "Time to implement it");
 
                 // Repeat this the same runnable code block again another 2 seconds
@@ -89,12 +93,15 @@ public class ScanningFragment extends Fragment {
     }
 
     private void measureDistance() {
+        Log.i("distance measure", "Starting");
         for (CustomScanResult result : dataList) {
             ArrayList<Integer> rssiValues = result.getRssiValues();
 
             int finalRssiValue = calculateFinalRssi(rssiValues);
 
-            double distance = Math.pow(10, (double) ((result.getMtxPower() - finalRssiValue) / (10 * 2)));
+            Log.i("distance measure", "Final RSSI value: " + finalRssiValue);
+
+            double distance = Math.pow(10, (double) ((-55 - finalRssiValue) / (10 * 2)));
 
             Log.i("distance measure", "Distance measured: " + distance);
 
@@ -117,6 +124,7 @@ public class ScanningFragment extends Fragment {
                 CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
                 existingResult.addRssiValue(result.getRssi());
                 dataList.set(addrMap.get(tempAddr), existingResult);
+                Log.i("scan", "result: " + existingResult.toString());
             } else {
                 dataList.add(tempResult);
                 addrMap.put(tempAddr, dataList.size()-1);
@@ -156,9 +164,6 @@ public class ScanningFragment extends Fragment {
                     mLEScanner.stopScan(mScanCallback);
                 }
             }, SCAN_PERIOD);
-
-            dataList.clear();
-            addrMap.clear();
 
             mLEScanner.startScan(filters, settings, mScanCallback);
             Log.i("scanLeDevice", "Start LeScan with mScanCallback");
