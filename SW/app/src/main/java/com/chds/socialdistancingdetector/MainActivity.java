@@ -59,9 +59,6 @@ public class MainActivity extends AppCompatActivity {
 
     BluetoothDevice selectedDevice;
 
-    public static final UUID UART_SERVICE_UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
-    public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
-
     public static void checkPermissions(Activity activity, Context context){
         int PERMISSION_ALL = 1;
         String[] PERMISSIONS = {
@@ -222,25 +219,6 @@ public class MainActivity extends AppCompatActivity {
 
 
     };
-
-    public void writeRxCharacteristic(String message) {
-        byte[] value = message.getBytes();
-        BluetoothGattService RxService = mGatt.getService(UART_SERVICE_UUID);
-        if (RxService == null) {
-            Log.i("writeRxCharacteristic", "RxService not found");
-            return;
-        }
-        BluetoothGattCharacteristic RxChar = RxService.getCharacteristic(UART_RX_CHAR_UUID);
-        if (RxChar == null) {
-            Log.i("writeRxCharacteristic", "RxChar not found");
-            return;
-        }
-        RxChar.setValue(value);
-        boolean status = mGatt.writeCharacteristic(RxChar);
-
-        Log.d("writeRxCharacteristic", "write TXchar - status=" + status);
-
-    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
