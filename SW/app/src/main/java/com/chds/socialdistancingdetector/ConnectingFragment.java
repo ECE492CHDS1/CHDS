@@ -85,11 +85,7 @@ public class ConnectingFragment extends Fragment {
             String tempAddr = result.getDevice().getAddress();
             CustomScanResult tempResult = new CustomScanResult(result);
 
-            if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
-                CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
-                existingResult.addRssiValue(result.getRssi());
-                dataList.set(addrMap.get(tempAddr), existingResult);
-            } else {
+            if (!addrMap.containsKey(tempAddr)) {
                 dataList.add(tempResult);
                 addrMap.put(tempAddr, dataList.size()-1);
             }
@@ -98,20 +94,6 @@ public class ConnectingFragment extends Fragment {
         @RequiresApi(api = Build.VERSION_CODES.N)
         @Override
         public void onBatchScanResults(List<ScanResult> results) {
-            for (ScanResult result : results) {
-                String tempAddr = result.getDevice().getAddress();
-                CustomScanResult tempResult = new CustomScanResult(result);
-
-                if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
-                    CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
-                    existingResult.addRssiValue(result.getRssi());
-                    dataList.set(addrMap.get(tempAddr), existingResult);
-                } else {
-                    dataList.add(tempResult);
-                    addrMap.put(tempAddr, dataList.size()-1);
-                }
-            }
-
             Log.i("batchScan Results", dataList.toString());
         }
 
