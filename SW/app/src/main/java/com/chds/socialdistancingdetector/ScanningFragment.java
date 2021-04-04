@@ -24,6 +24,7 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,10 +36,10 @@ public class ScanningFragment extends Fragment {
     MainActivity mainActivity;
     BluetoothGatt mGatt;
     String connectedDeviceAddress;
-    private static final long SCAN_PERIOD = 1000;
+    private static final long SCAN_PERIOD = 5000;
     public static final UUID UART_SERVICE_UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
     public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
-    private static final String HAPTIC_DEVICE_ALERT = "alert";
+    private static final String HAPTIC_DEVICE_ALERT = "alert\n";
     private static final Integer TX_POWER_1M = -55;
 
     HashMap<String, CustomScanResult> scanResultHashMap;
@@ -57,51 +58,44 @@ public class ScanningFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_scanning, container, false);
         mainActivity = ((MainActivity) getActivity());
 
-        Handler handler = new Handler();
+        // start scanning
+        scanLeDevice();
 
-        Runnable runnableCode = new Runnable() {
-            @Override
-            public void run() {
-                // Do something here on the main thread
-                scanLeDevice(true);
-                measureDistance();
-
-                Log.i("Algorithm", "Time to implement it");
-                
-                // 'this' is referencing the Runnable object
-                handler.post(this);
-            }
-        };
-
-
-        handler.post(runnableCode);
         return view;
     }
 
 
     private void measureDistance() {
-        Log.i("distance measure", "Starting");
-        Collection<CustomScanResult> scanResults = scanResultHashMap.values();
+        Log.i("Distance measure", "Starting");
+        boolean sendAlert = false;
+        HashSet<String> removeSet = new HashSet<>();
 
-        for (CustomScanResult result : scanResults) {
+        for (CustomScanResult result : scanResultHashMap.values()) {
             if (result.getRawRssiValues().size() == 0) {
-                scanResultHashMap.remove(result.getDeviceAddr());
+                removeSet.add(result.getDeviceAddr());
                 continue;
             }
 
             double rssiValue = result.computeRssiValue();
 
-            Log.i("distance measure", "Final RSSI value: " + rssiValue);
+            Log.i("Distance measure", "Final RSSI value: " + rssiValue);
 
             double distance = Math.pow(10, (TX_POWER_1M - rssiValue) / (10 * 2));
 
-            Log.i("distance measure", "Distance measured: " + distance);
+            Log.i("Distance measure", "Distance measured: " + distance);
 
             if (distance <= 2) {
-                writeRxCharacteristic(HAPTIC_DEVICE_ALERT);
-                return;
+                sendAlert = true;
             }
         }
+
+        scanResultHashMap.keySet().removeAll(removeSet);
+
+        if (sendAlert) {
+            writeRxCharacteristic(HAPTIC_DEVICE_ALERT);
+        }
+
+        Log.i("Distance measure", "Done");
     }
 
     private ScanCallback mScanCallback = new ScanCallback() {
@@ -115,10 +109,11 @@ public class ScanningFragment extends Fragment {
                 CustomScanResult existingResult = scanResultHashMap.get(address);
                 existingResult.addRawRssiValue(result.getRssi());
                 scanResultHashMap.put(address, existingResult);
-                Log.i("scan", "result: " + existingResult.toString());
+                Log.i("Scan", "Scan result: " + existingResult.toString());
             } else {
                 CustomScanResult newResult = new CustomScanResult(result);
                 scanResultHashMap.put(address, newResult);
+                Log.i("Scan", "Scan result: " + newResult.toString());
             }
         }
 
@@ -130,7 +125,7 @@ public class ScanningFragment extends Fragment {
         @RequiresApi(api = Build.VERSION_CODES.N)
         @Override
         public void onBatchScanResults(List<ScanResult> results) {
-            Log.i("batchScan Results", scanResultHashMap.toString());
+            Log.i("Scan", "Batch scan results:" + scanResultHashMap.toString());
             for (ScanResult result : results) {
                 addScanResultToArray(result);
             }
@@ -138,30 +133,38 @@ public class ScanningFragment extends Fragment {
 
         @Override
         public void onScanFailed(int errorCode) {
-            Log.e("Scan Failed", "Error Code: " + errorCode);
+            Log.e("Scan", "Failed! Error Code: " + errorCode);
         }
     };
 
-    private void scanLeDevice(final boolean enable) {
-        Handler mHandler = mainActivity.getmHandler();
+    private void scanLeDevice() {
         BluetoothLeScanner mLEScanner = mainActivity.getmLEScanner();
         List<ScanFilter> filters = mainActivity.getFilters();
         ScanSettings settings = mainActivity.getSettings();
 
-        if (enable) {
-            mHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    mLEScanner.stopScan(mScanCallback);
-                }
-            }, SCAN_PERIOD);
+        Handler handler = new Handler();
 
-            mLEScanner.startScan(filters, settings, mScanCallback);
-            Log.i("scanLeDevice", "Start LeScan with mScanCallback");
+        Runnable runnableCode = new Runnable() {
+            @Override
+            public void run() {
+                // stop scanning
+                Log.i("Scan", "Stopping");
+                mLEScanner.stopScan(mScanCallback);
+                measureDistance();
 
-        } else {
-            mLEScanner.stopScan(mScanCallback);
-        }
+                // start scanning once again
+                Log.i("Scan", "Starting");
+                mLEScanner.startScan(filters, settings, mScanCallback);
+
+                // 'this' is referencing the Runnable object
+                handler.postDelayed(this, SCAN_PERIOD);
+            }
+        };
+
+        // start scanning for the first time
+        Log.i("Scan", "Starting");
+        mLEScanner.startScan(filters, settings, mScanCallback);
+        handler.postDelayed(runnableCode, SCAN_PERIOD);
     }
 
     public void writeRxCharacteristic(String message) {
@@ -181,7 +184,7 @@ public class ScanningFragment extends Fragment {
         RxChar.setValue(value);
         boolean status = mGatt.writeCharacteristic(RxChar);
 
-        Log.d("writeRxCharacteristic", "write TXchar - status=" + status);
+        Log.d("writeRxCharacteristic", "write RXchar - status=" + status);
 
     }
 

@@ -72,12 +72,12 @@ while True:
     pixel.show()
     print("Connected")
 
-    for connection in ble.connections:
-        if connection.connected:
-            if not connection.paired:
-                #  pairs to phone
-                connection.pair(bond=True)
-                print("Paired")
+    # for connection in ble.connections:
+    #     if connection.connected:
+    #         if not connection.paired:
+    #             #  pairs to phone
+    #             connection.pair(bond=True)
+    #             print("Paired")
 
     while ble.connected:
         if uart_service.in_waiting:
@@ -88,7 +88,7 @@ while True:
             if command == 'alert':
                 pixel.fill(color.CYAN)
                 pixel.show()
-                vibrate(2, 2, 1)
+                vibrate(1, 0.5, 0)
 
             pixel.fill(color.BLUE)
             pixel.show()

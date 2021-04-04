@@ -49,7 +49,6 @@ public class MainActivity extends AppCompatActivity {
     private int REQUEST_ENABLE_BT = 1;
     private int REQUEST_PAIR_REQUEST = 2;
     private Handler mHandler;
-    private static final long SCAN_PERIOD = 3000;
     private BluetoothLeScanner mLEScanner;
     private ScanSettings settings;
     private List<ScanFilter> filters;

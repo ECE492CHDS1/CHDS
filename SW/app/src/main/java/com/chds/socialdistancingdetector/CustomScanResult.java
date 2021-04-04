@@ -68,8 +68,7 @@ public class CustomScanResult implements Serializable
     }
 
     public void addRawRssiValue(Integer rssiValue) {
-        // Smooth RSSI value using previous average rssiValue
-        this.rawRssiValues.add((int)(this.rssiValue + rssiValue) / 2);
+        this.rawRssiValues.add(rssiValue);
     }
 
     public double getRssiValue() { return this.rssiValue; }
