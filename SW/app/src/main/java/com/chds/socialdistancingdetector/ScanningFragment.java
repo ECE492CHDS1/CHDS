@@ -1,6 +1,5 @@
 package com.chds.socialdistancingdetector;
 
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
@@ -21,8 +20,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -35,21 +35,20 @@ public class ScanningFragment extends Fragment {
     MainActivity mainActivity;
     BluetoothGatt mGatt;
     String connectedDeviceAddress;
-    private static final long SCAN_PERIOD = 3000;
+    private static final long SCAN_PERIOD = 1000;
     public static final UUID UART_SERVICE_UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
     public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
     private static final String HAPTIC_DEVICE_ALERT = "alert";
+    private static final Integer TX_POWER_1M = -55;
 
-    ArrayList<CustomScanResult> dataList;
-    HashMap<String, Integer> addrMap;
+    HashMap<String, CustomScanResult> scanResultHashMap;
 
     public ScanningFragment(String deviceAddress, BluetoothGatt mGatt) {
         // Required empty public constructor
         connectedDeviceAddress = deviceAddress;
 
         this.mGatt = mGatt;
-        addrMap = new HashMap<>();
-        this.dataList = new ArrayList<>();
+        scanResultHashMap = new HashMap<>();
     }
 
     @Override
@@ -67,14 +66,10 @@ public class ScanningFragment extends Fragment {
                 scanLeDevice(true);
                 measureDistance();
 
-                dataList.clear();
-                addrMap.clear();
-
                 Log.i("Algorithm", "Time to implement it");
-
-                // Repeat this the same runnable code block again another 2 seconds
+                
                 // 'this' is referencing the Runnable object
-                handler.postDelayed(this, 5000);
+                handler.post(this);
             }
         };
 
@@ -83,51 +78,47 @@ public class ScanningFragment extends Fragment {
         return view;
     }
 
-    private int calculateFinalRssi(ArrayList<Integer> rssiValues) {
-        int total = 0;
-        for (Integer rssiValue : rssiValues) {
-            total += rssiValue;
-        }
-
-        return (total / rssiValues.size());
-    }
 
     private void measureDistance() {
         Log.i("distance measure", "Starting");
-        for (CustomScanResult result : dataList) {
-            ArrayList<Integer> rssiValues = result.getRssiValues();
+        Collection<CustomScanResult> scanResults = scanResultHashMap.values();
 
-            int finalRssiValue = calculateFinalRssi(rssiValues);
+        for (CustomScanResult result : scanResults) {
+            if (result.getRawRssiValues().size() == 0) {
+                scanResultHashMap.remove(result.getDeviceAddr());
+                continue;
+            }
 
-            Log.i("distance measure", "Final RSSI value: " + finalRssiValue);
+            double rssiValue = result.computeRssiValue();
 
-            double distance = Math.pow(10, (double) ((-55 - finalRssiValue) / (10 * 2)));
+            Log.i("distance measure", "Final RSSI value: " + rssiValue);
+
+            double distance = Math.pow(10, (TX_POWER_1M - rssiValue) / (10 * 2));
 
             Log.i("distance measure", "Distance measured: " + distance);
 
             if (distance <= 2) {
                 writeRxCharacteristic(HAPTIC_DEVICE_ALERT);
+                return;
             }
         }
     }
 
     private ScanCallback mScanCallback = new ScanCallback() {
         private void addScanResultToArray(ScanResult result) {
-            String tempAddr = result.getDevice().getAddress();
-            if (tempAddr.equals(connectedDeviceAddress)) {
+            String address = result.getDevice().getAddress();
+            if (address.equals(connectedDeviceAddress)) {
                 return;
             }
 
-            CustomScanResult tempResult = new CustomScanResult(result);
-
-            if (!dataList.isEmpty() && addrMap.containsKey(tempAddr)) {
-                CustomScanResult existingResult = dataList.get(addrMap.get(tempAddr));
-                existingResult.addRssiValue(result.getRssi());
-                dataList.set(addrMap.get(tempAddr), existingResult);
+            if (scanResultHashMap.containsKey(address)) {
+                CustomScanResult existingResult = scanResultHashMap.get(address);
+                existingResult.addRawRssiValue(result.getRssi());
+                scanResultHashMap.put(address, existingResult);
                 Log.i("scan", "result: " + existingResult.toString());
             } else {
-                dataList.add(tempResult);
-                addrMap.put(tempAddr, dataList.size()-1);
+                CustomScanResult newResult = new CustomScanResult(result);
+                scanResultHashMap.put(address, newResult);
             }
         }
 
@@ -139,7 +130,7 @@ public class ScanningFragment extends Fragment {
         @RequiresApi(api = Build.VERSION_CODES.N)
         @Override
         public void onBatchScanResults(List<ScanResult> results) {
-            Log.i("batchScan Results", dataList.toString());
+            Log.i("batchScan Results", scanResultHashMap.toString());
             for (ScanResult result : results) {
                 addScanResultToArray(result);
             }
