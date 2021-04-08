@@ -1,7 +1,9 @@
 package com.chds.socialdistancingdetector;
+
 import android.Manifest;
 import android.app.Activity;
 import android.app.Fragment;
+import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -18,6 +20,7 @@ import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -37,11 +40,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.FragmentTransaction;
 
+import com.google.android.gms.location.Geofence;
+import com.google.android.gms.location.GeofencingClient;
+import com.google.android.gms.location.GeofencingRequest;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.gson.Gson;
 
 // Activity for pairing user's own haptic device
@@ -50,7 +60,9 @@ import com.google.gson.Gson;
 public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter mBluetoothAdapter;
     private int REQUEST_ENABLE_BT = 1;
-    private int REQUEST_PAIR_REQUEST = 2;
+
+    private int REQUEST_SETTINGS = 2;
+
     private Handler mHandler;
     private BluetoothLeScanner mLEScanner;
     private ScanSettings settings;
@@ -60,7 +72,13 @@ public class MainActivity extends AppCompatActivity {
 
     BluetoothDevice selectedDevice;
 
-    public static void checkPermissions(Activity activity, Context context){
+    List<Geofence> geofenceList;
+    Double selectedLat;
+    Double selectedLong;
+    Boolean geofencingEnabled;
+    PendingIntent geofencePendingIntent = null;
+
+    public static void checkPermissions(Activity activity, Context context) {
         int PERMISSION_ALL = 1;
         String[] PERMISSIONS = {
                 Manifest.permission.ACCESS_FINE_LOCATION,
@@ -69,8 +87,8 @@ public class MainActivity extends AppCompatActivity {
                 Manifest.permission.BLUETOOTH_PRIVILEGED,
         };
 
-        if(!hasPermissions(context, PERMISSIONS)) {
-            ActivityCompat.requestPermissions( activity, PERMISSIONS, PERMISSION_ALL);
+        if (!hasPermissions(context, PERMISSIONS)) {
+            ActivityCompat.requestPermissions(activity, PERMISSIONS, PERMISSION_ALL);
         }
     }
 
@@ -92,6 +110,7 @@ public class MainActivity extends AppCompatActivity {
 
         statusBanner = findViewById(R.id.main_status_banner);
         statusBanner.setText("Connect to a Device");
+        geofenceList = new ArrayList<>();
 
         mHandler = new Handler();
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
@@ -144,8 +163,12 @@ public class MainActivity extends AppCompatActivity {
             case R.id.settings:
                 // go to profile activity
                 Intent intent = new Intent(this, SettingsActivity.class);
+                intent.putExtra("latitude", selectedLat);
+                intent.putExtra("longitude", selectedLong);
+                intent.putExtra("geofencingEnabled", geofencingEnabled);
 
-                this.startActivity(intent);
+                startActivityForResult(intent, REQUEST_SETTINGS);
+//                startActivity(intent);
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -248,8 +271,81 @@ public class MainActivity extends AppCompatActivity {
 
     };
 
+    private GeofencingRequest getGeofencingRequest() {
+        GeofencingRequest.Builder builder = new GeofencingRequest.Builder();
+        builder.setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER);
+        builder.addGeofences(geofenceList);
+        return builder.build();
+    }
+
+    private PendingIntent getGeofencePendingIntent() {
+        // Reuse the PendingIntent if we already have it.
+
+        if (geofencePendingIntent != null) {
+            return geofencePendingIntent;
+        }
+
+        Intent intent = new Intent(this, GeofenceBroadcastReceiver.class);
+        // We use FLAG_UPDATE_CURRENT so that we get the same pending intent back when
+        // calling addGeofences() and removeGeofences().
+        geofencePendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.
+                FLAG_UPDATE_CURRENT);
+        return geofencePendingIntent;
+    }
+
+    private void setUpGeofencing() {
+        geofenceList.clear();
+        geofenceList.add(new Geofence.Builder()
+                // Set the request ID of the geofence. This is a string to identify this
+                // geofence.
+                .setRequestId("Geofence")
+
+                .setCircularRegion(
+                        selectedLat,
+                        selectedLong,
+                        500
+                )
+                .setExpirationDuration(-1)
+                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER |
+                        Geofence.GEOFENCE_TRANSITION_EXIT)
+                .build());
+
+        GeofencingRequest geofencingRequest = getGeofencingRequest();
+        geofencePendingIntent = getGeofencePendingIntent();
+
+        GeofencingClient geofencingClient = LocationServices.getGeofencingClient(this);
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+
+        geofencingClient
+                .addGeofences(geofencingRequest, geofencePendingIntent)
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        Log.i("geoFencingClient", "Success");
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.i("geoFencingClient", e.toString());
+                    }
+                });
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
         if (requestCode == REQUEST_ENABLE_BT) {
             if (resultCode == Activity.RESULT_CANCELED) {
                 //Bluetooth not enabled.
@@ -257,7 +353,16 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
         }
-        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_SETTINGS) {
+            selectedLat = data.getDoubleExtra("selectedLat", 0);
+            selectedLong = data.getDoubleExtra("selectedLong", 0);
+            geofencingEnabled = data.getBooleanExtra("geofencingEnabled", false);
+
+            if (geofencingEnabled) {
+                setUpGeofencing();
+            }
+        }
     }
 
 }
