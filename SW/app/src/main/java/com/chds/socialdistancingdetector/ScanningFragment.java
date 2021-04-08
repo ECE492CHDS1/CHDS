@@ -1,8 +1,5 @@
 package com.chds.socialdistancingdetector;
 
-import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattService;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
@@ -19,14 +16,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 
-import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -34,21 +29,24 @@ import java.util.UUID;
  */
 public class ScanningFragment extends Fragment {
     MainActivity mainActivity;
-    BluetoothGatt mGatt;
+    BluetoothLeScanner mLEScanner;
+    List<ScanFilter> filters;
+    ScanSettings settings;
+    Handler scanHandler;
+    Boolean scanEnabled;
+
     String connectedDeviceAddress;
     private static final long SCAN_PERIOD = 5000;
-    public static final UUID UART_SERVICE_UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
-    public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
-    private static final String HAPTIC_DEVICE_ALERT = "alert\n";
     private static final Integer TX_POWER_1M = -55;
 
     HashMap<String, CustomScanResult> scanResultHashMap;
 
-    public ScanningFragment(String deviceAddress, BluetoothGatt mGatt) {
+    Button backButton;
+
+    public ScanningFragment(String deviceAddress) {
         // Required empty public constructor
         connectedDeviceAddress = deviceAddress;
-
-        this.mGatt = mGatt;
+        Log.i("ScanningFragment", "deviceAddress set:" + deviceAddress);
         scanResultHashMap = new HashMap<>();
     }
 
@@ -57,9 +55,22 @@ public class ScanningFragment extends Fragment {
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_scanning, container, false);
         mainActivity = ((MainActivity) getActivity());
+        mLEScanner = mainActivity.getmLEScanner();
+        scanHandler = new Handler();
+        filters = mainActivity.getFilters();
+        settings = mainActivity.getSettings();
+
+        backButton = view.findViewById(R.id.back_button);
+        backButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                disableScan();
+                mainActivity.fragmentStatus = mainActivity.CONNECTING_FRAGMENT;
+                mainActivity.displayFragment();
+            }
+        });
 
         // start scanning
-        scanLeDevice();
+        enableScan();
 
         return view;
     }
@@ -92,7 +103,7 @@ public class ScanningFragment extends Fragment {
         scanResultHashMap.keySet().removeAll(removeSet);
 
         if (sendAlert) {
-            writeRxCharacteristic(HAPTIC_DEVICE_ALERT);
+            mainActivity.connectToDevice(connectedDeviceAddress);
         }
 
         Log.i("Distance measure", "Done");
@@ -137,13 +148,8 @@ public class ScanningFragment extends Fragment {
         }
     };
 
-    private void scanLeDevice() {
-        BluetoothLeScanner mLEScanner = mainActivity.getmLEScanner();
-        List<ScanFilter> filters = mainActivity.getFilters();
-        ScanSettings settings = mainActivity.getSettings();
-
-        Handler handler = new Handler();
-
+    public void enableScan() {
+        scanEnabled = true;
         Runnable runnableCode = new Runnable() {
             @Override
             public void run() {
@@ -156,36 +162,25 @@ public class ScanningFragment extends Fragment {
                 Log.i("Scan", "Starting");
                 mLEScanner.startScan(filters, settings, mScanCallback);
 
-                // 'this' is referencing the Runnable object
-                handler.postDelayed(this, SCAN_PERIOD);
+                if (scanEnabled) {
+                    // 'this' is referencing the Runnable object
+                    scanHandler.postDelayed(this, SCAN_PERIOD);
+                }
             }
         };
 
         // start scanning for the first time
         Log.i("Scan", "Starting");
         mLEScanner.startScan(filters, settings, mScanCallback);
-        handler.postDelayed(runnableCode, SCAN_PERIOD);
+        scanHandler.postDelayed(runnableCode, SCAN_PERIOD);
     }
 
-    public void writeRxCharacteristic(String message) {
-        byte[] value = message.getBytes();
-        BluetoothGattService RxService = mGatt.getService(UART_SERVICE_UUID);
-        if (RxService == null) {
-            Log.i("writeRxCharacteristic", "RxService not found");
-            return;
-        }
-        BluetoothGattCharacteristic RxChar = RxService.getCharacteristic(UART_RX_CHAR_UUID);
-
-        if (RxChar == null) {
-            Log.i("writeRxCharacteristic", "RxChar not found");
-            return;
-        }
-
-        RxChar.setValue(value);
-        boolean status = mGatt.writeCharacteristic(RxChar);
-
-        Log.d("writeRxCharacteristic", "write RXchar - status=" + status);
-
+    public void disableScan() {
+        scanEnabled = false;
+        scanHandler.removeCallbacksAndMessages(null);
+        mLEScanner.stopScan(mScanCallback);
     }
+
+
 
 }
