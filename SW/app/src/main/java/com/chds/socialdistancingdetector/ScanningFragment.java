@@ -64,8 +64,7 @@ public class ScanningFragment extends Fragment {
         backButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 disableScan();
-                mainActivity.fragmentStatus = mainActivity.CONNECTING_FRAGMENT;
-                mainActivity.displayFragment();
+                mainActivity.displayFragment(MainActivity.CONNECTING_FRAGMENT);
             }
         });
 
@@ -156,13 +155,14 @@ public class ScanningFragment extends Fragment {
                 // stop scanning
                 Log.i("Scan", "Stopping");
                 mLEScanner.stopScan(mScanCallback);
-                measureDistance();
-
-                // start scanning once again
-                Log.i("Scan", "Starting");
-                mLEScanner.startScan(filters, settings, mScanCallback);
 
                 if (scanEnabled) {
+                    measureDistance();
+
+                    // start scanning once again
+                    Log.i("Scan", "Starting");
+                    mLEScanner.startScan(filters, settings, mScanCallback);
+
                     // 'this' is referencing the Runnable object
                     scanHandler.postDelayed(this, SCAN_PERIOD);
                 }
@@ -177,10 +177,8 @@ public class ScanningFragment extends Fragment {
 
     public void disableScan() {
         scanEnabled = false;
+        Log.i("Scan", "Disabled");
         scanHandler.removeCallbacksAndMessages(null);
         mLEScanner.stopScan(mScanCallback);
     }
-
-
-
 }

@@ -71,7 +71,8 @@ public class ConnectingFragment extends Fragment {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
                 CustomScanResult result = deviceAdapter.getItem(i);
-                mainActivity.connectToDevice(result.getDeviceAddr());
+                mainActivity.setSelectedDeviceAddress(result.getDeviceAddr());
+                mainActivity.displayFragment(MainActivity.SCANNING_FRAGMENT);
             }
         });
 
