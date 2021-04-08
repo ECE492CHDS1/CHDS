@@ -7,21 +7,25 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Objects;
 
+import static java.sql.Types.NULL;
+
 public class CustomScanResult implements Serializable
 {
     private String deviceName;
     private String deviceAddr;
     private BluetoothDevice device;
-    private ArrayList<Integer> rssiValues;
+    private ArrayList<Integer> rawRssiValues;
+    private double rssiValue = 0;
     private int mtxPower;
+    private static double FILTER_COEFFICIENT = 0.75;
 
     public CustomScanResult(ScanResult result)
     {
         deviceName = result.getDevice().getName();
         deviceAddr = result.getDevice().getAddress();
         device = result.getDevice();
-        rssiValues = new ArrayList<Integer>();
-        rssiValues.add(result.getRssi());
+        rawRssiValues = new ArrayList<Integer>();
+        rawRssiValues.add(result.getRssi());
         mtxPower = result.getScanRecord().getTxPowerLevel();
     }
 
@@ -35,8 +39,8 @@ public class CustomScanResult implements Serializable
         return deviceName;
     }
 
-    public ArrayList<Integer> getRssiValues() {
-        return rssiValues;
+    public ArrayList<Integer> getRawRssiValues() {
+        return rawRssiValues;
     }
 
     public BluetoothDevice getDevice() {
@@ -63,8 +67,26 @@ public class CustomScanResult implements Serializable
         this.deviceAddr = deviceAddr;
     }
 
-    public void addRssiValue(Integer rssiValue) {
-        this.rssiValues.add(rssiValue);
+    public void addRawRssiValue(Integer rssiValue) {
+        this.rawRssiValues.add(rssiValue);
+    }
+
+    public double getRssiValue() { return this.rssiValue; }
+
+    public double computeRssiValue() {
+        double sum = 0;
+        for (Integer rssiValue : rawRssiValues) {
+            sum += rssiValue;
+        }
+
+        if (rssiValue == 0) {
+            rssiValue = sum / rawRssiValues.size();
+        } else {
+            rssiValue = rssiValue * (1 - FILTER_COEFFICIENT) + FILTER_COEFFICIENT * (sum / rawRssiValues.size());
+        }
+
+        rawRssiValues.clear();
+        return rssiValue;
     }
 
     @Override
@@ -73,7 +95,7 @@ public class CustomScanResult implements Serializable
                 "deviceName='" + deviceName + '\'' +
                 ", deviceAddr=" + deviceAddr +
                 ", device=" + device +
-                ", rssiValues=" + rssiValues +
+                ", rssiValues=" + rawRssiValues +
                 '}';
     }
 
