@@ -3,6 +3,7 @@ package com.chds.socialdistancingdetector;
 import android.Manifest;
 import android.app.Activity;
 import android.app.Fragment;
+import android.app.FragmentManager;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -62,7 +63,6 @@ public class MainActivity extends AppCompatActivity {
     private int REQUEST_ENABLE_BT = 1;
     private int REQUEST_SETTINGS = 2;
 
-    public static int fragmentStatus = 1;
     public final static int CONNECTING_FRAGMENT = 1;
     public final static int SCANNING_FRAGMENT = 2;
 
@@ -70,13 +70,15 @@ public class MainActivity extends AppCompatActivity {
     public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
     private static final String HAPTIC_DEVICE_ALERT = "alert\n";
 
+    private int fragmentStatus;
+
     private Handler mHandler;
     private BluetoothLeScanner mLEScanner;
     private ScanSettings settings;
     private List<ScanFilter> filters;
     private BluetoothGatt mGatt;
     TextView statusBanner;
-    static String selectedDeviceAddress;
+    String selectedDeviceAddress;
 
     List<Geofence> geofenceList;
     Double selectedLat;
@@ -149,18 +151,12 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        fragmentStatus = CONNECTING_FRAGMENT;
+        displayFragment(CONNECTING_FRAGMENT);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        displayFragment();
-
-    }
-
-    public void displayFragment() {
-        FragmentTransaction ft = getSupportFragmentManager().beginTransaction();;
+    public void displayFragment(int fragmentStatus) {
+        this.fragmentStatus = fragmentStatus;
+        FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
         getFragmentManager().popBackStack();
         switch (fragmentStatus) {
             case CONNECTING_FRAGMENT:
@@ -219,6 +215,10 @@ public class MainActivity extends AppCompatActivity {
         return settings;
     }
 
+    public void setSelectedDeviceAddress(String selectedDeviceAddress) {
+        this.selectedDeviceAddress = selectedDeviceAddress;
+    }
+
     public void connectToDevice(String deviceAddress) {
         if (mBluetoothAdapter == null) {
             Log.w("connectToDevice", "BluetoothAdapter not initialized.");
@@ -248,8 +248,6 @@ public class MainActivity extends AppCompatActivity {
             mGatt = device.connectGatt(this, false, gattCallback);
         }
 
-
-
     }
 
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
@@ -258,23 +256,21 @@ public class MainActivity extends AppCompatActivity {
 
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    selectedDeviceAddress = gatt.getDevice().getAddress();
                     Log.i("deviceAddress", selectedDeviceAddress);
                     Log.w("BluetoothGattCallback", "Successfully connected to deviceAddress " + selectedDeviceAddress);
                     gatt.discoverServices();
-
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     Log.w("BluetoothGattCallback", "Successfully disconnected from deviceAddress " + selectedDeviceAddress);
                     gatt.close();
                     mGatt = null;
                 }
             } else {
+                Toast.makeText(MainActivity.this, "Could not connect to haptic device", Toast.LENGTH_SHORT).show();
                 Log.w("BluetoothGattCallback", "Error " + String.valueOf(status) + " encountered for deviceAddress: " + selectedDeviceAddress + ". Disconnecting...");
                 gatt.close();
             }
 
         }
-
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
@@ -284,9 +280,6 @@ public class MainActivity extends AppCompatActivity {
             }
             writeRxCharacteristic(gatt, HAPTIC_DEVICE_ALERT);
             gatt.disconnect();
-            fragmentStatus = SCANNING_FRAGMENT;
-            displayFragment();
-
         }
 
         @Override
@@ -418,4 +411,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void enableScan() {
+        if (fragmentStatus == SCANNING_FRAGMENT) {
+            ScanningFragment scanningFragment = (ScanningFragment) getFragmentManager().getBackStackEntryAt(0);
+            scanningFragment.enableScan();
+        }
+    }
+
+    public void disableScan() {
+        if (fragmentStatus == SCANNING_FRAGMENT) {
+            ScanningFragment scanningFragment = (ScanningFragment) getFragmentManager().getBackStackEntryAt(0);
+            scanningFragment.disableScan();
+        }
+    }
 }

@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Switch;
+import android.widget.Toast;
 
 public class SettingsActivity extends AppCompatActivity {
     Switch geofenceSwitch;
@@ -62,6 +63,7 @@ public class SettingsActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 selectedLocation = getCurrentLocation();
+                Toast.makeText(SettingsActivity.this, "Successfully selected current location", Toast.LENGTH_SHORT).show();
             }
         });
 
