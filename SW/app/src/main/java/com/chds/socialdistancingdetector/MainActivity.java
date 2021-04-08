@@ -60,8 +60,15 @@ import com.google.gson.Gson;
 public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter mBluetoothAdapter;
     private int REQUEST_ENABLE_BT = 1;
-
     private int REQUEST_SETTINGS = 2;
+
+    public static int fragmentStatus = 1;
+    public final static int CONNECTING_FRAGMENT = 1;
+    public final static int SCANNING_FRAGMENT = 2;
+
+    public static final UUID UART_SERVICE_UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+    public static final UUID UART_RX_CHAR_UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+    private static final String HAPTIC_DEVICE_ALERT = "alert\n";
 
     private Handler mHandler;
     private BluetoothLeScanner mLEScanner;
@@ -69,8 +76,7 @@ public class MainActivity extends AppCompatActivity {
     private List<ScanFilter> filters;
     private BluetoothGatt mGatt;
     TextView statusBanner;
-
-    BluetoothDevice selectedDevice;
+    static String selectedDeviceAddress;
 
     List<Geofence> geofenceList;
     Double selectedLat;
@@ -109,7 +115,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         statusBanner = findViewById(R.id.main_status_banner);
-        statusBanner.setText("Connect to a Device");
+
         geofenceList = new ArrayList<>();
 
         mHandler = new Handler();
@@ -143,9 +149,31 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        ConnectingFragment connectingFragment = new ConnectingFragment();
-        FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
-        ft.replace(R.id.fragment_layout_manager, connectingFragment);
+        fragmentStatus = CONNECTING_FRAGMENT;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        displayFragment();
+
+    }
+
+    public void displayFragment() {
+        FragmentTransaction ft = getSupportFragmentManager().beginTransaction();;
+        getFragmentManager().popBackStack();
+        switch (fragmentStatus) {
+            case CONNECTING_FRAGMENT:
+                statusBanner.setText("Connect to a Device");
+                ConnectingFragment connectingFragment = new ConnectingFragment();
+                ft.replace(R.id.fragment_layout_manager, connectingFragment);
+                break;
+            case SCANNING_FRAGMENT:
+                statusBanner.setText("Detecting Nearby Devices");
+                ScanningFragment scanningFragment = new ScanningFragment(selectedDeviceAddress);
+                ft.replace(R.id.fragment_layout_manager, scanningFragment);
+                break;
+        }
         ft.commitAllowingStateLoss();
     }
 
@@ -191,74 +219,74 @@ public class MainActivity extends AppCompatActivity {
         return settings;
     }
 
-    public void connectToDevice(BluetoothDevice device) {
+    public void connectToDevice(String deviceAddress) {
+        if (mBluetoothAdapter == null) {
+            Log.w("connectToDevice", "BluetoothAdapter not initialized.");
+            return;
+        }
+
+        if (deviceAddress == null) {
+            Log.w("connectToDevice", "Unspecified address.");
+            return;
+        }
+
+        if (mGatt != null) {
+            Log.d("connectToDevice", "Trying to use an existing mBluetoothGatt for connection.");
+            mGatt.connect();
+            return;
+        }
+
+        final BluetoothDevice device = mBluetoothAdapter
+                .getRemoteDevice(deviceAddress);
+        if (device == null) {
+            Log.w("connectToDevice", "Device not found.  Unable to connect.");
+            return;
+        }
+
         if (mGatt == null) {
             Log.i("connectToDevice", "Starting Gatt Connection");
             mGatt = device.connectGatt(this, false, gattCallback);
-            // TODO: Check result of createBond()
-            device.createBond();
-            selectedDevice = device;
         }
+
+
 
     }
 
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            String deviceAddress = gatt.getDevice().getAddress();
-            Log.i("deviceAddress", deviceAddress);
 
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    Log.w("BluetoothGattCallback", "Successfully connected to $deviceAddress");
-                    // TODO: Store a reference to BluetoothGatt
+                    selectedDeviceAddress = gatt.getDevice().getAddress();
+                    Log.i("deviceAddress", selectedDeviceAddress);
+                    Log.w("BluetoothGattCallback", "Successfully connected to deviceAddress " + selectedDeviceAddress);
                     gatt.discoverServices();
 
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    Log.w("BluetoothGattCallback", "Successfully disconnected from $deviceAddress");
+                    Log.w("BluetoothGattCallback", "Successfully disconnected from deviceAddress " + selectedDeviceAddress);
                     gatt.close();
+                    mGatt = null;
                 }
             } else {
-                Log.w("BluetoothGattCallback", "Error $status encountered for $deviceAddress! Disconnecting...");
+                Log.w("BluetoothGattCallback", "Error " + String.valueOf(status) + " encountered for deviceAddress: " + selectedDeviceAddress + ". Disconnecting...");
                 gatt.close();
             }
 
         }
 
-        private void printGattTable(List<BluetoothGattService> services) {
-            if (services.isEmpty()) {
-                Log.i("printGattTable", "No service and characteristic available, call discoverServices() first?");
-                return;
-            }
-
-            for (BluetoothGattService service : services) {
-                List<BluetoothGattCharacteristic> characteristicsTable = service.getCharacteristics();
-                String characteristics = "";
-
-                for (BluetoothGattCharacteristic cr : characteristicsTable) {
-                    characteristics += cr.toString() + ", ";
-                }
-
-                Log.i(
-                        "printGattTable",
-                        "Service: " + service.getUuid().toString() + "\nCharacteristics: " + characteristics
-                );
-            }
-        }
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            Log.i("onServicesDiscovered", "In onServicesDiscovered");
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                // services are discovered
+                Log.i("onServicesDiscovered", "In onServicesDiscovered");
+            }
+            writeRxCharacteristic(gatt, HAPTIC_DEVICE_ALERT);
+            gatt.disconnect();
+            fragmentStatus = SCANNING_FRAGMENT;
+            displayFragment();
 
-            List<BluetoothGattService> services = gatt.getServices();
-
-            printGattTable(services);
-
-            statusBanner.setText("Detecting Nearby Devices");
-            ScanningFragment scanningFragment = new ScanningFragment(selectedDevice.getAddress(), mGatt);
-            FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
-            ft.replace(R.id.fragment_layout_manager, scanningFragment);
-            ft.commitAllowingStateLoss();
         }
 
         @Override
@@ -270,6 +298,26 @@ public class MainActivity extends AppCompatActivity {
 
 
     };
+
+    public void writeRxCharacteristic(BluetoothGatt gatt, String message) {
+        byte[] value = message.getBytes();
+        BluetoothGattService RxService = gatt.getService(UART_SERVICE_UUID);
+        if (RxService == null) {
+            Log.i("writeRxCharacteristic", "RxService not found");
+            return;
+        }
+        BluetoothGattCharacteristic RxChar = RxService.getCharacteristic(UART_RX_CHAR_UUID);
+
+        if (RxChar == null) {
+            Log.i("writeRxCharacteristic", "RxChar not found");
+            return;
+        }
+
+        RxChar.setValue(value);
+        boolean status = gatt.writeCharacteristic(RxChar);
+
+        Log.d("writeRxCharacteristic", "write RXchar - status=" + status);
+    }
 
     private GeofencingRequest getGeofencingRequest() {
         GeofencingRequest.Builder builder = new GeofencingRequest.Builder();
@@ -355,12 +403,17 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (requestCode == REQUEST_SETTINGS) {
-            selectedLat = data.getDoubleExtra("selectedLat", 0);
-            selectedLong = data.getDoubleExtra("selectedLong", 0);
-            geofencingEnabled = data.getBooleanExtra("geofencingEnabled", false);
+            if (resultCode == Activity.RESULT_CANCELED) {
+                // Cancel button was pressed, do nothing
+                return;
+            } else {
+                selectedLat = data.getDoubleExtra("selectedLat", 0);
+                selectedLong = data.getDoubleExtra("selectedLong", 0);
+                geofencingEnabled = data.getBooleanExtra("geofencingEnabled", false);
 
-            if (geofencingEnabled) {
-                setUpGeofencing();
+                if (geofencingEnabled) {
+                    setUpGeofencing();
+                }
             }
         }
     }

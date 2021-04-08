@@ -71,7 +71,7 @@ public class ConnectingFragment extends Fragment {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
                 CustomScanResult result = deviceAdapter.getItem(i);
-                mainActivity.connectToDevice(result.getDevice());
+                mainActivity.connectToDevice(result.getDeviceAddr());
             }
         });
 
@@ -88,6 +88,7 @@ public class ConnectingFragment extends Fragment {
             if (!addrMap.containsKey(tempAddr)) {
                 dataList.add(tempResult);
                 addrMap.put(tempAddr, dataList.size()-1);
+                Log.i("scan Results", dataList.toString());
             }
         }
 
