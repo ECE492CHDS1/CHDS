@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Social Distancing Detector</string>
+    <string name="app_name">CoDi</string>
     <string name="ble_not_supported">\"BLE is not supported on your device\"</string>
     <string name="ble_not_enabled">\"Please enable Bluetooth for the app to function\"</string>
     <!-- TODO: Remove or change this placeholder text -->

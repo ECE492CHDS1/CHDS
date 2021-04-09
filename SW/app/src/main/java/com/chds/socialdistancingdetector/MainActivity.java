@@ -18,8 +18,10 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
@@ -71,6 +73,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String HAPTIC_DEVICE_ALERT = "alert\n";
 
     private int fragmentStatus;
+    private ConnectingFragment connectingFragment;
+    private ScanningFragment scanningFragment;
 
     private Handler mHandler;
     private BluetoothLeScanner mLEScanner;
@@ -119,6 +123,8 @@ public class MainActivity extends AppCompatActivity {
         statusBanner = findViewById(R.id.main_status_banner);
 
         geofenceList = new ArrayList<>();
+        scanningFragment = new ScanningFragment();
+        connectingFragment = new ConnectingFragment();
 
         mHandler = new Handler();
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
@@ -161,12 +167,17 @@ public class MainActivity extends AppCompatActivity {
         switch (fragmentStatus) {
             case CONNECTING_FRAGMENT:
                 statusBanner.setText("Connect to a Device");
-                ConnectingFragment connectingFragment = new ConnectingFragment();
+//                ConnectingFragment connectingFragment = new ConnectingFragment();
+
                 ft.replace(R.id.fragment_layout_manager, connectingFragment);
+
                 break;
             case SCANNING_FRAGMENT:
                 statusBanner.setText("Detecting Nearby Devices");
-                ScanningFragment scanningFragment = new ScanningFragment(selectedDeviceAddress);
+//                ScanningFragment scanningFragment = new ScanningFragment(selectedDeviceAddress);
+
+                scanningFragment.setConnectedDeviceAddress(selectedDeviceAddress);
+
                 ft.replace(R.id.fragment_layout_manager, scanningFragment);
                 break;
         }
@@ -192,7 +203,6 @@ public class MainActivity extends AppCompatActivity {
                 intent.putExtra("geofencingEnabled", geofencingEnabled);
 
                 startActivityForResult(intent, REQUEST_SETTINGS);
-//                startActivity(intent);
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -399,13 +409,15 @@ public class MainActivity extends AppCompatActivity {
             if (resultCode == Activity.RESULT_CANCELED) {
                 // Cancel button was pressed, do nothing
                 return;
-            } else {
+            } else if (fragmentStatus == MainActivity.SCANNING_FRAGMENT) {
                 selectedLat = data.getDoubleExtra("selectedLat", 0);
                 selectedLong = data.getDoubleExtra("selectedLong", 0);
                 geofencingEnabled = data.getBooleanExtra("geofencingEnabled", false);
 
                 if (geofencingEnabled) {
                     setUpGeofencing();
+                } else {
+                    enableScan();
                 }
             }
         }
@@ -413,15 +425,51 @@ public class MainActivity extends AppCompatActivity {
 
     public void enableScan() {
         if (fragmentStatus == SCANNING_FRAGMENT) {
-            ScanningFragment scanningFragment = (ScanningFragment) getFragmentManager().getBackStackEntryAt(0);
+            statusBanner.setText("Detecting nearby devices");
             scanningFragment.enableScan();
         }
     }
 
     public void disableScan() {
         if (fragmentStatus == SCANNING_FRAGMENT) {
-            ScanningFragment scanningFragment = (ScanningFragment) getFragmentManager().getBackStackEntryAt(0);
+            statusBanner.setText("In GeoFence safe area");
             scanningFragment.disableScan();
         }
     }
+
+    private final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Bundle b = intent.getExtras();
+            String message = b.getString("Geofence");
+
+            Log.i("broadcastReceiver", "" + message);
+            if (message.equals("Entered")) {
+                disableScan();
+            } else if (message.equals("Exited")) {
+                enableScan();
+            }
+
+        }
+    };
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        registerReceiver(broadcastReceiver, new IntentFilter("GeofenceReceiver"));
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        try {
+            if(broadcastReceiver != null){
+                unregisterReceiver(broadcastReceiver);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 }

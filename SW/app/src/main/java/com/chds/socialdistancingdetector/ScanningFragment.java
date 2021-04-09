@@ -50,6 +50,14 @@ public class ScanningFragment extends Fragment {
         scanResultHashMap = new HashMap<>();
     }
 
+    public ScanningFragment() {
+        scanResultHashMap = new HashMap<>();
+    }
+
+    public void setConnectedDeviceAddress(String connectedDeviceAddress) {
+        this.connectedDeviceAddress = connectedDeviceAddress;
+    }
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
