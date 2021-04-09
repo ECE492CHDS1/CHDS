@@ -59,6 +59,18 @@ public class SettingsActivity extends AppCompatActivity {
 
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
 
+        Boolean isEnabled = getIntent().getBooleanExtra("geofencingEnabled", false);
+        geofenceSwitch.setChecked(isEnabled);
+
+        Double selectedLat = getIntent().getDoubleExtra("latitude",  -360);
+        Double selectedLong = getIntent().getDoubleExtra("longitude", -360);
+
+        if (selectedLat != -360 && selectedLong != -360) {
+            selectedLocation = new Location(LocationManager.GPS_PROVIDER);
+            selectedLocation.setLatitude(selectedLat);
+            selectedLocation.setLongitude(selectedLong);
+        }
+
         setButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -76,9 +88,12 @@ public class SettingsActivity extends AppCompatActivity {
                     selectedLocation = getCurrentLocation();
                 }
 
+                if (geofenceSwitch.isChecked()) {
+                    output.putExtra("selectedLat", selectedLocation.getLatitude());
+                    output.putExtra("selectedLong", selectedLocation.getLongitude());
+                }
+
                 output.putExtra("geofencingEnabled", geofenceSwitch.isChecked());
-                output.putExtra("selectedLat", selectedLocation.getLatitude());
-                output.putExtra("selectedLong", selectedLocation.getLongitude());
                 setResult(RESULT_OK, output);
                 finish();
             }

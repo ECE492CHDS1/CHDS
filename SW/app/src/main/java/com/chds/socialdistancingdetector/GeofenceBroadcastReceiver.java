@@ -14,7 +14,6 @@ import java.util.List;
 
 public class GeofenceBroadcastReceiver extends BroadcastReceiver {
 
-
     public void onReceive(Context context, Intent intent) {
         GeofencingEvent geofencingEvent = GeofencingEvent.fromIntent(intent);
         if (geofencingEvent.hasError()) {
@@ -24,14 +23,17 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
             return;
         }
 
-        // Get the transition type.
         int geofenceTransition = geofencingEvent.getGeofenceTransition();
 
-        // Test that the reported transition was of interest.
+        Intent newIntent = new Intent("GeofenceReceiver");
         if (geofenceTransition == Geofence.GEOFENCE_TRANSITION_ENTER) {
-            //MainActivity.disableScan();
+            Log.i("geofenceTransition", "In geofenceTransition enter");
+
+            newIntent.putExtra("Geofence", "Entered");
         } else if (geofenceTransition == Geofence.GEOFENCE_TRANSITION_EXIT) {
-            //MainActivity.enableScan();
+            newIntent.putExtra("Geofence", "Exited");
         }
+
+        context.sendBroadcast(newIntent);
     }
 }
