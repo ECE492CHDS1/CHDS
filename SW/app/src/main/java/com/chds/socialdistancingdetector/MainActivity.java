@@ -151,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
                         .build();
                 filters = new ArrayList<ScanFilter>();
                 ScanFilter filter = new ScanFilter.Builder()
-                        .setDeviceName("CHDS Haptic Device")
+                        .setDeviceName("CoDi")
                         .build();
                 filters.add(filter);
             }

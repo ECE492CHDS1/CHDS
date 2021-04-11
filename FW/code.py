@@ -28,7 +28,7 @@ blue_led.direction = Direction.OUTPUT
 
 # setup for BLE
 ble = BLERadio()
-ble.name = "CHDS Haptic Device"
+ble.name = "CoDi"
 if ble.connected:
     for c in ble.connections:
         c.disconnect()
@@ -36,7 +36,7 @@ if ble.connected:
 advertisement = ProvideServicesAdvertisement()
 
 # add device info service and UART service for BLE to advertise
-device_info_service = DeviceInfoService(manufacturer="CHDS")
+device_info_service = DeviceInfoService(manufacturer="CoDi Co.")
 uart_service = UARTService()
 advertisement.services.append(device_info_service)
 advertisement.services.append(uart_service)
