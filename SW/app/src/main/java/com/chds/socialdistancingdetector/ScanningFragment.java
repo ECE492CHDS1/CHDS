@@ -102,7 +102,7 @@ public class ScanningFragment extends Fragment {
 
             Log.i("Distance measure", "Distance measured: " + distance);
 
-            if (distance <= 2) {
+            if (distance < 2) {
                 sendAlert = true;
             }
         }
